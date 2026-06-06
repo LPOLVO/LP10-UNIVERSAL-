@@ -1,910 +1,333 @@
-    NewBadge   = Color3.fromRGB(255, 60, 60),
-    TextMain   = Color3.fromRGB(240, 240, 255),
-    TextMuted  = Color3.fromRGB(140, 140, 170),
-    Green      = Color3.fromRGB(60, 220, 130),
-    -- Phone-sized frame (works on all mobile screens)
-    W = 340,
-    H = 590,
+-- [[ LP10 HUB UNIVERSAL | FINAL PRO EDITION + JUNE 6 UPDATE ]]
+-- FEATURES: SEARCH BAR, AUTO SCROLLING, ADJUSTED NOTIFS, SPLASH, RESIZING, USER LOGGER + SCRIPT LOGGER
+-- BY @LPOLVO (HAMZA)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
+
+-- [ 1. CONFIGURATION ]
+local Config = {
+    HubName = "LP10 HUB UNIVERSAL",
+    AccentColor = Color3.fromRGB(33, 150, 243),
+    BgColor = Color3.fromRGB(15, 15, 15),
+    UpdateColor = Color3.fromRGB(255, 50, 50),
+    MinSize = Vector2.new(350, 400),
+    MaxSize = Vector2.new(800, 600)
 }
 
--- ============================================================
--- [ SOUND SETUP ]
--- ============================================================
-local function MakeSound(id, vol, pitch)
-    local s = Instance.new("Sound", SoundService)
-    s.SoundId = "rbxassetid://" .. id
-    s.Volume  = vol or 0.5
-    s.PlaybackSpeed = pitch or 1
-    s.RollOffMaxDistance = 100
-    return s
-end
-
--- Using free Roblox asset IDs
-local Sounds = {
-    Open    = MakeSound("6020394739",  0.4, 1.1),   -- soft pop / open
-    Close   = MakeSound("6020394739",  0.3, 0.85),  -- same pitched down
-    Click   = MakeSound("6020394739",  0.25, 1.3),  -- short tap
-    Sheet   = MakeSound("5997084542",  0.3, 1.0),   -- slide whoosh
-    Execute = MakeSound("4959484451",  0.5, 1.0),   -- success chime
-    Notify  = MakeSound("6020394739",  0.2, 1.5),   -- notification ping
-}
-local function PlaySound(s) spawn(function() pcall(function() s:Play() end) end) end
-
--- ============================================================
--- [ LOGGER ]
--- ============================================================
+-- [ LOGGER FUNCTION ]
 local function SendLog(scriptName)
     spawn(function()
         pcall(function()
             local player = Players.LocalPlayer
+            local MPS = game:GetService("MarketplaceService")
             local gameName = "Unknown"
             pcall(function()
-                gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+                gameName = MPS:GetProductInfo(game.PlaceId).Name
             end)
             local req = syn and syn.request or request or http_request
             req({
-                Url    = "https://lp10-ai-server-production.up.railway.app/log",
+                Url = "https://lp10-ai-server-production.up.railway.app/log",
                 Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
+                Headers = { ["Content-Type"] = "application/json" },
                 Body = HttpService:JSONEncode({
-                    username   = player.Name,
-                    userId     = tostring(player.UserId),
-                    game       = gameName,
-                    placeId    = tostring(game.PlaceId),
-                    jobId      = game.JobId,
+                    username = player.Name,
+                    userId = tostring(player.UserId),
+                    game = gameName,
+                    placeId = tostring(game.PlaceId),
+                    jobId = game.JobId,
                     scriptName = scriptName or "Just opened hub"
                 })
             })
         end)
     end)
 end
+
+-- [ LOG ON OPEN ]
 SendLog("Just opened hub")
 
--- ============================================================
--- [ SCRIPTS DATA ]
--- ============================================================
+-- [ SCRIPTS LIST - CHEESE ESCAPE & BUILD A STORE AT TOP ]
 local ScriptsData = {
-    {Name = "Cheese Escape [Horror]",             New = true,  Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Cheese%20Escape%20%5BHorror%5D%20OB"))()'},
-    {Name = "Build a Store",                      New = true,  Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20a%20store%20OB"))()'},
-    {Name = "Kick a Lucky Block",                 New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Kick%20a%20luckyblock%20OB"))()'},
-    {Name = "Combat Arena Op Silent Aim",         New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Combat%20Arena%20Op%20silent%20aim%20OB"))()'},
-    {Name = "1 Plank = $1/s",                     New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/1%20plank%20%3D%20%241perS%20OB"))()'},
-    {Name = "Mutate The Brainrot",                New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Mutate%20the%20brainrot%20OB"))()'},
-    {Name = "Launch Yourself For Brainrots!",     New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Launch%20Yourself%20For%20Brainrots!%20OB"))()'},
-    {Name = "Coordinates And Save Teleport",      New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Coordinates%20And%20save%20Teleport%20OB"))()'},
-    {Name = "Build A Farm Factory",               New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20A%20Farm%20Factory%20OB"))()'},
-    {Name = "Free Gamepasses",                    New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Free%20Gamepasses%20OB"))()'},
-    {Name = "Hide & Seek",                        New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Hide%20%26%20Seek%20OB"))()'},
-    {Name = "Impossible Squid Game Glass Bridge 2",New = false,Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Impossible%20Squid%20Game%20Glass%20Bridge%202%20OB"))()'},
-    {Name = "Rivals Silent Aim",                  New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/RIVALS%20SILENT%20AIM%20OB"))()'},
-    {Name = "Squabble Game RP",                   New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Squabble%20Game%20RP%20OB"))()'},
-    {Name = "Parkour for Brainrots",              New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Parkour%20for%20brainrots%20OB"))()'},
-    {Name = "Ride Storm",                         New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Ride%20Storm%20OB"))()'},
-    {Name = "Skateboard for Brainrots",           New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Skateboard%20for%20Brainrots%20OB"))()'},
-    {Name = "Emotes",                             New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Emotes%20OB"))()'},
-    {Name = "Noob Army Tycoon",                   New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Noob%20Army%20Tycoon%20OB"))()'},
-    {Name = "Ride the Coaster",                   New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Ride%20the%20Coaster%20OB"))()'},
-    {Name = "Dead Rails",                         New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Dead%20rails%20OB"))()'},
-    {Name = "Don't Get Caught for Hackers",       New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Don\'t%20get%20caught%20for%20hackers%20OB"))()'},
-    {Name = "Brainrot Ascension",                 New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Brainrot%20Ascension%20OB"))()'},
-    {Name = "Paper Plane Training ✈",             New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/%5B%F0%9F%A5%87%5DPaper%20Airplane%20Training%E2%9C%88%EF%B8%8F%20OB"))()'},
-    {Name = "Cursed Blade [ALPHA]",               New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Cursed%20Blade%20%5BALPHA%5D%20OB"))()'},
-    {Name = "OneShot",                            New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/OneShot%20OB"))()'},
-    {Name = "Build a Boat for Treasure",          New = false, Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20a%20boat%20for%20Treasure%20OB"))()'},
+    -- 🔥 NEWEST GAME - FIRST IN LIST 🔥
+    {Name = "🆕 Cheese Escape [Horror]", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Cheese%20Escape%20%5BHorror%5D%20OB"))()', New = true},
+    {Name = "🆕 Build a Store", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20a%20store%20OB"))()', New = true},
+    {Name = "Kick a Lucky Block", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Kick%20a%20luckyblock%20OB"))()'},
+    {Name = "Combat Arena Op Silent Aim", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Combat%20Arena%20Op%20silent%20aim%20OB"))()'},
+    {Name = "1 Plank = $1/s", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/1%20plank%20%3D%20%241perS%20OB"))()'},
+    {Name = "Mutate The Brainrot", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Mutate%20the%20brainrot%20OB"))()'},
+    {Name = "Launch Yourself For Brainrots!", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Launch%20Yourself%20For%20Brainrots!%20OB"))()'},
+    {Name = "Coordinates And Save Teleport", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Coordinates%20And%20save%20Teleport%20OB"))()'},
+    {Name = "Build A Farm Factory", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20A%20Farm%20Factory%20OB"))()'},
+    {Name = "Free Gamepasses", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Free%20Gamepasses%20OB"))()'},
+    {Name = "Hide & Seek", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Hide%20%26%20Seek%20OB"))()'},
+    {Name = "Impossible Squid Game Glass Bridge 2", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Impossible%20Squid%20Game%20Glass%20Bridge%202%20OB"))()'},
+    {Name = "Rivals Silent Aim", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/RIVALS%20SILENT%20AIM%20OB"))()'},
+    {Name = "Squabble Game RP", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Squabble%20Game%20RP%20OB"))()'},
+    {Name = "Parkour for Brainrots", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Parkour%20for%20brainrots%20OB"))()'},
+    {Name = "Ride Storm", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Ride%20Storm%20OB"))()'},
+    {Name = "Skateboard for Brainrots", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Skateboard%20for%20Brainrots%20OB"))()'},
+    {Name = "Emotes", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Emotes%20OB"))()'},
+    {Name = "Noob Army Tycoon", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Noob%20Army%20Tycoon%20OB"))()'},
+    {Name = "Ride the Coaster", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Ride%20the%20Coaster%20OB"))()'},
+    {Name = "Dead Rails", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Dead%20rails%20OB"))()'},
+    {Name = "Don't get caught for hackers", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Don\'t%20get%20caught%20for%20hackers%20OB"))()'},
+    {Name = "Brainrot Ascension", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Brainrot%20Ascension%20OB"))()'},
+    {Name = "Paper Plane Training ✈️", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/%5B%F0%9F%A5%87%5DPaper%20Airplane%20Training%E2%9C%88%EF%B8%8F%20OB"))()'},
+    {Name = "Cursed Blade [ALPHA]", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Cursed%20Blade%20%5BALPHA%5D%20OB"))()'},
+    {Name = "OneShot", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/OneShot%20OB"))()'},
+    {Name = "Build a Boat for Treasure", Source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20a%20boat%20for%20Treasure%20OB"))()'}
 }
 
--- ============================================================
--- [ HELPERS ]
--- ============================================================
-local function Tween(obj, t, style, dir, props)
-    style = style or Enum.EasingStyle.Quart
-    dir   = dir   or Enum.EasingDirection.Out
-    return TweenService:Create(obj, TweenInfo.new(t, style, dir), props)
-end
-
-local function Corner(parent, radius)
-    local c = Instance.new("UICorner", parent)
-    c.CornerRadius = UDim.new(0, radius or 14)
-    return c
-end
-
-local function Stroke(parent, color, thickness)
-    local s = Instance.new("UIStroke", parent)
-    s.Color = color or Config.Accent
-    s.Thickness = thickness or 1.5
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    return s
-end
-
-local function Label(parent, props)
-    local l = Instance.new("TextLabel", parent)
-    l.BackgroundTransparency = 1
-    l.TextScaled = false
-    l.TextWrapped = true
-    for k,v in pairs(props or {}) do l[k] = v end
-    return l
-end
-
-local function Frame(parent, props)
-    local f = Instance.new("Frame", parent)
-    f.BorderSizePixel = 0
-    for k,v in pairs(props or {}) do f[k] = v end
-    return f
-end
-
-local function Btn(parent, props)
-    local b = Instance.new("TextButton", parent)
-    b.BorderSizePixel = 0
-    b.AutoButtonColor = false
-    for k,v in pairs(props or {}) do b[k] = v end
-    return b
-end
-
--- ============================================================
--- [ SCREENgui + BLUR ]
--- ============================================================
-pcall(function()
-    if CoreGui:FindFirstChild("LP10_MobileEdition") then
-        CoreGui:FindFirstChild("LP10_MobileEdition"):Destroy()
-    end
-end)
-
+-- [ 2. UI CREATION ]
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name          = "LP10_MobileEdition"
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ResetOnSpawn  = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Name = "LP10_Final_Edition"
 
 local Blur = Instance.new("BlurEffect", Lighting)
-Blur.Size    = 0
-Blur.Enabled = false
+Blur.Size = 0; Blur.Enabled = false
 
--- ============================================================
--- [ NOTIFICATION SYSTEM ]
--- ============================================================
-local notifY = 0.82
-local function CustomNotify(title, msg, color)
-    PlaySound(Sounds.Notify)
-    color = color or Config.Accent
-    local NF = Frame(ScreenGui, {
-        Size     = UDim2.new(0, 280, 0, 68),
-        Position = UDim2.new(0.5, -140, 1, 10),
-        BackgroundColor3 = Color3.fromRGB(18, 18, 26),
-        ZIndex   = 20,
-    })
-    Corner(NF, 16)
-    Stroke(NF, color, 1.5)
+local function CustomNotify(title, msg)
+    local NotifFrame = Instance.new("Frame", ScreenGui)
+    NotifFrame.Size = UDim2.new(0, 250, 0, 60)
+    NotifFrame.Position = UDim2.new(1, 10, 0.8, 0)
+    NotifFrame.BackgroundColor3 = Config.BgColor
+    Instance.new("UICorner", NotifFrame)
+    local Stroke = Instance.new("UIStroke", NotifFrame)
+    Stroke.Color = Config.AccentColor; Stroke.Thickness = 2
 
-    -- left accent bar
-    local bar = Frame(NF, {
-        Size             = UDim2.new(0, 4, 1, -16),
-        Position         = UDim2.new(0, 8, 0, 8),
-        BackgroundColor3 = color,
-        ZIndex           = 21,
-    })
-    Corner(bar, 4)
+    local T = Instance.new("TextLabel", NotifFrame)
+    T.Size = UDim2.new(1, -20, 0.4, 0); T.Position = UDim2.new(0, 10, 0.1, 0)
+    T.BackgroundTransparency = 1; T.Text = title; T.TextColor3 = Config.AccentColor
+    T.Font = Enum.Font.GothamBold; T.TextSize = 14; T.TextXAlignment = Enum.TextXAlignment.Left
 
-    Label(NF, {
-        Size     = UDim2.new(1, -30, 0, 22),
-        Position = UDim2.new(0, 20, 0, 8),
-        Text     = title,
-        TextColor3 = color,
-        Font     = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex   = 21,
-    })
-    Label(NF, {
-        Size     = UDim2.new(1, -30, 0, 28),
-        Position = UDim2.new(0, 20, 0, 30),
-        Text     = msg,
-        TextColor3 = Config.TextMuted,
-        Font     = Enum.Font.Gotham,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true,
-        ZIndex   = 21,
-    })
+    local M = Instance.new("TextLabel", NotifFrame)
+    M.Size = UDim2.new(1, -20, 0.4, 0); M.Position = UDim2.new(0, 10, 0.5, 0)
+    M.BackgroundTransparency = 1; M.Text = msg; M.TextColor3 = Color3.new(1,1,1)
+    M.Font = Enum.Font.Gotham; M.TextSize = 12; M.TextXAlignment = Enum.TextXAlignment.Left; M.TextWrapped = true
 
-    Tween(NF, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out, {
-        Position = UDim2.new(0.5, -140, 0.82, 0)
-    }):Play()
-    task.delay(3.2, function()
-        if NF and NF.Parent then
-            Tween(NF, 0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In, {
-                Position = UDim2.new(0.5, -140, 1, 10)
-            }):Play()
-            task.wait(0.42)
-            pcall(function() NF:Destroy() end)
+    NotifFrame:TweenPosition(UDim2.new(1, -260, 0.8, 0), "Out", "Back", 0.5)
+    task.delay(3, function()
+        if NotifFrame then
+            NotifFrame:TweenPosition(UDim2.new(1, 10, 0.8, 0), "In", "Sine", 0.5)
+            task.wait(0.5); NotifFrame:Destroy()
         end
     end)
 end
 
--- ============================================================
--- [ SPLASH SCREEN ]
--- ============================================================
 local function SplashIntro()
-    -- Full dark overlay
-    local overlay = Frame(ScreenGui, {
-        Size             = UDim2.new(1, 0, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(8, 8, 14),
-        ZIndex           = 50,
-    })
+    local SplashFrame = Instance.new("Frame", ScreenGui)
+    SplashFrame.Size = UDim2.new(0, 0, 0, 0); SplashFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    SplashFrame.BackgroundColor3 = Config.BgColor; SplashFrame.ClipsDescendants = true
+    Instance.new("UICorner", SplashFrame).CornerRadius = UDim.new(0, 15)
+    local SplashStroke = Instance.new("UIStroke", SplashFrame)
+    SplashStroke.Color = Config.AccentColor; SplashStroke.Thickness = 2
 
-    -- Glow circle
-    local glow = Frame(overlay, {
-        Size             = UDim2.new(0, 0, 0, 0),
-        Position         = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundColor3 = Config.Accent,
-        ZIndex           = 51,
-    })
-    Corner(glow, 999)
+    local SplashText = Instance.new("TextLabel", SplashFrame)
+    SplashText.Size = UDim2.new(1, 0, 1, 0); SplashText.BackgroundTransparency = 1
+    SplashText.Text = Config.HubName; SplashText.TextColor3 = Config.AccentColor
+    SplashText.Font = Enum.Font.FredokaOne; SplashText.TextSize = 25; SplashText.TextTransparency = 1
 
-    -- Logo card
-    local card = Frame(overlay, {
-        Size             = UDim2.new(0, 0, 0, 0),
-        Position         = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundColor3 = Color3.fromRGB(16, 16, 24),
-        ZIndex           = 52,
-    })
-    Corner(card, 24)
-    Stroke(card, Config.Accent, 2)
-
-    local logoBig = Label(card, {
-        Size       = UDim2.new(1, 0, 0.5, 0),
-        Position   = UDim2.new(0, 0, 0.05, 0),
-        Text       = "💎 LP10 HUB",
-        TextColor3 = Config.Accent,
-        Font       = Enum.Font.FredokaOne,
-        TextSize   = 32,
-        TextTransparency = 1,
-        ZIndex     = 53,
-    })
-    local logoSub = Label(card, {
-        Size       = UDim2.new(1, 0, 0.3, 0),
-        Position   = UDim2.new(0, 0, 0.55, 0),
-        Text       = "UNIVERSAL EDITION",
-        TextColor3 = Config.TextMuted,
-        Font       = Enum.Font.GothamBold,
-        TextSize   = 13,
-        TextTransparency = 1,
-        ZIndex     = 53,
-    })
-
-    -- Animate in
-    PlaySound(Sounds.Open)
-    Tween(glow, 0.5, Enum.EasingStyle.Quart)(glow)
-    TweenService:Create(glow, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Size     = UDim2.new(0, 200, 0, 200),
-        Position = UDim2.new(0.5, -100, 0.5, -100),
-        BackgroundTransparency = 0.85,
-    }):Play()
-    TweenService:Create(card, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Size     = UDim2.new(0, 280, 0, 130),
-        Position = UDim2.new(0.5, -140, 0.5, -65),
-    }):Play()
-    task.wait(0.55)
-    TweenService:Create(logoBig,  TweenInfo.new(0.5), {TextTransparency = 0}):Play()
-    TweenService:Create(logoSub,  TweenInfo.new(0.5), {TextTransparency = 0}):Play()
-    task.wait(1.6)
-    TweenService:Create(logoBig,  TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-    TweenService:Create(logoSub,  TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-    task.wait(0.3)
-    TweenService:Create(card, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-        Size     = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-    }):Play()
-    TweenService:Create(glow, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundTransparency = 1,
-    }):Play()
-    TweenService:Create(overlay, TweenInfo.new(0.45), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(SplashFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 300, 0, 100), Position = UDim2.new(0.5, -150, 0.5, -50)}):Play()
+    task.wait(0.6)
+    TweenService:Create(SplashText, TweenInfo.new(0.6), {TextTransparency = 0}):Play()
+    task.wait(1.5)
+    TweenService:Create(SplashText, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
     task.wait(0.5)
-    pcall(function() overlay:Destroy() end)
+    TweenService:Create(SplashFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+    task.wait(0.5); SplashFrame:Destroy()
 end
 
--- ============================================================
--- [ TOGGLE BUTTON (floating pill) ]
--- ============================================================
-local ToggleBtn = Btn(ScreenGui, {
-    Size             = UDim2.new(0, 72, 0, 36),
-    Position         = UDim2.new(0.5, -36, 0.92, 0),
-    BackgroundColor3 = Color3.fromRGB(16, 16, 26),
-    Text             = "💎 LP10",
-    TextColor3       = Config.Accent,
-    Font             = Enum.Font.GothamBold,
-    TextSize         = 14,
-    Visible          = false,
-    ZIndex           = 10,
-})
-Corner(ToggleBtn, 18)
-Stroke(ToggleBtn, Config.Accent, 1.5)
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0, 60, 0, 60); ToggleBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
+ToggleBtn.BackgroundColor3 = Config.BgColor; ToggleBtn.Text = "UN"; ToggleBtn.TextColor3 = Config.AccentColor
+ToggleBtn.Font = Enum.Font.FredokaOne; ToggleBtn.TextSize = 25; ToggleBtn.Visible = false
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 15)
+local ToggleStroke = Instance.new("UIStroke", ToggleBtn)
+ToggleStroke.Color = Config.AccentColor; ToggleStroke.Thickness = 2
 
--- Pulse glow on toggle btn
-local toggleGlow = Instance.new("UIGradient", ToggleBtn)
-toggleGlow.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Config.Accent),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 80, 200)),
-})
-toggleGlow.Rotation = 45
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 400, 0, 450); Main.Position = UDim2.new(0.5, -200, 0.5, -225)
+Main.BackgroundColor3 = Config.BgColor; Main.Visible = false; Main.ClipsDescendants = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+local MainStroke = Instance.new("UIStroke", Main)
+MainStroke.Color = Config.AccentColor; MainStroke.Thickness = 2
 
--- ============================================================
--- [ MAIN FRAME ]
--- ============================================================
-local Main = Frame(ScreenGui, {
-    Size             = UDim2.new(0, Config.W, 0, Config.H),
-    Position         = UDim2.new(0.5, -Config.W/2, 0.5, -Config.H/2),
-    BackgroundColor3 = Config.Bg,
-    Visible          = false,
-    ClipsDescendants = true,
-    ZIndex           = 5,
-})
-Corner(Main, 22)
-Stroke(Main, Config.Accent, 2)
+local ResizeHandle = Instance.new("TextButton", Main)
+ResizeHandle.Size = UDim2.new(0, 25, 0, 25); ResizeHandle.Position = UDim2.new(1, -25, 1, -25)
+ResizeHandle.BackgroundTransparency = 1; ResizeHandle.Text = "◢"; ResizeHandle.TextColor3 = Config.AccentColor
+ResizeHandle.TextSize = 20; ResizeHandle.ZIndex = 5
 
--- Inner gradient
-local mainGrad = Instance.new("UIGradient", Main)
-mainGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 18, 28)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 18)),
-})
-mainGrad.Rotation = 120
+-- Header with June 6 Update
+local Header = Instance.new("TextLabel", Main)
+Header.Size = UDim2.new(1, 0, 0, 22)
+Header.Position = UDim2.new(0, 0, 0, 0)
+Header.BackgroundTransparency = 1
+Header.Text = "💎 LP10 HUB UNIVERSAL"
+Header.TextColor3 = Config.AccentColor
+Header.Font = Enum.Font.GothamBold
+Header.TextSize = 15
 
--- ============================================================
--- [ HEADER ]
--- ============================================================
-local HeaderFrame = Frame(Main, {
-    Size             = UDim2.new(1, 0, 0, 90),
-    BackgroundColor3 = Color3.fromRGB(14, 14, 22),
-    ZIndex           = 6,
-})
-local hGrad = Instance.new("UIGradient", HeaderFrame)
-hGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 40, 80)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 14, 22)),
-})
-hGrad.Rotation = 90
+local UpdateLabel = Instance.new("TextLabel", Main)
+UpdateLabel.Size = UDim2.new(1, 0, 0, 18)
+UpdateLabel.Position = UDim2.new(0, 0, 0, 22)
+UpdateLabel.BackgroundTransparency = 1
+UpdateLabel.Text = "| June 6 Update | + Cheese Escape [Horror]"
+UpdateLabel.TextColor3 = Config.UpdateColor
+UpdateLabel.Font = Enum.Font.GothamBold
+UpdateLabel.TextSize = 11
+UpdateLabel.TextXAlignment = Enum.TextXAlignment.Center
 
--- Close button
-local CloseBtn = Btn(HeaderFrame, {
-    Size             = UDim2.new(0, 34, 0, 34),
-    Position         = UDim2.new(1, -42, 0.5, -17),
-    BackgroundColor3 = Color3.fromRGB(50, 20, 20),
-    Text             = "✕",
-    TextColor3       = Color3.fromRGB(255, 100, 100),
-    Font             = Enum.Font.GothamBold,
-    TextSize         = 16,
-    ZIndex           = 7,
-})
-Corner(CloseBtn, 10)
+-- [ INSTAGRAM BUTTON ]
+local InstagramBtn = Instance.new("TextButton", Main)
+InstagramBtn.Size = UDim2.new(0.9, 0, 0, 30)
+InstagramBtn.Position = UDim2.new(0.05, 0, 0, 42)
+InstagramBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+InstagramBtn.BorderSizePixel = 0
+InstagramBtn.Font = Enum.Font.GothamBold
+InstagramBtn.TextSize = 11
+InstagramBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+InstagramBtn.AutoButtonColor = false
+InstagramBtn.Text = "📷 Follow my Instagram"
+Instance.new("UICorner", InstagramBtn).CornerRadius = UDim.new(0, 6)
+local IGStroke = Instance.new("UIStroke", InstagramBtn)
+IGStroke.Color = Color3.fromRGB(225, 48, 108)
+IGStroke.Thickness = 1.5
 
-Label(HeaderFrame, {
-    Size     = UDim2.new(1, -100, 0, 34),
-    Position = UDim2.new(0, 16, 0, 8),
-    Text     = "💎  LP10 HUB",
-    TextColor3 = Config.Accent,
-    Font     = Enum.Font.FredokaOne,
-    TextSize = 26,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    ZIndex   = 7,
-})
-Label(HeaderFrame, {
-    Size     = UDim2.new(1, -20, 0, 18),
-    Position = UDim2.new(0, 16, 0, 40),
-    Text     = "UNIVERSAL  •  " .. Config.Version,
-    TextColor3 = Config.TextMuted,
-    Font     = Enum.Font.GothamBold,
-    TextSize = 11,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    ZIndex   = 7,
-})
-
--- Script count badge
-local CountBadge = Frame(HeaderFrame, {
-    Size             = UDim2.new(0, 80, 0, 22),
-    Position         = UDim2.new(0, 16, 0, 62),
-    BackgroundColor3 = Color3.fromRGB(20, 50, 100),
-    ZIndex           = 7,
-})
-Corner(CountBadge, 11)
-Label(CountBadge, {
-    Size       = UDim2.new(1, 0, 1, 0),
-    Text       = "27 scripts",
-    TextColor3 = Config.Accent,
-    Font       = Enum.Font.GothamBold,
-    TextSize   = 11,
-    ZIndex     = 8,
-})
-
--- Instagram button (compact, in header row)
-local IGBtn = Btn(HeaderFrame, {
-    Size             = UDim2.new(0, 34, 0, 22),
-    Position         = UDim2.new(0, 102, 0, 62),
-    BackgroundColor3 = Color3.fromRGB(50, 10, 30),
-    Text             = "📷",
-    TextColor3       = Color3.fromRGB(255, 255, 255),
-    Font             = Enum.Font.Gotham,
-    TextSize         = 13,
-    ZIndex           = 7,
-})
-Corner(IGBtn, 11)
-Stroke(IGBtn, Color3.fromRGB(225, 48, 108), 1)
-
-IGBtn.MouseButton1Click:Connect(function()
-    PlaySound(Sounds.Click)
+InstagramBtn.MouseButton1Click:Connect(function()
+    local instaLink = "https://www.instagram.com/4me.h4mz4_?igsh=MW9sa20yejExaGo5Nw=="
     pcall(function()
-        local link = "https://www.instagram.com/4me.h4mz4_?igsh=MW9sa20yejExaGo5Nw=="
-        if setclipboard then setclipboard(link) end
+        if setclipboard then
+            setclipboard(instaLink)
+            InstagramBtn.Text = "✅ Copied! Follow me on IG"
+            InstagramBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
+            task.delay(3, function()
+                InstagramBtn.Text = "📷 Follow my Instagram"
+                InstagramBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end)
+        end
     end)
-    CustomNotify("📷 Instagram", "Link copied! Follow @4me.h4mz4_ on IG", Color3.fromRGB(225, 48, 108))
 end)
 
--- ============================================================
--- [ SEARCH BAR ]
--- ============================================================
-local SearchWrap = Frame(Main, {
-    Size             = UDim2.new(1, -24, 0, 44),
-    Position         = UDim2.new(0, 12, 0, 96),
-    BackgroundColor3 = Color3.fromRGB(22, 22, 34),
-    ZIndex           = 6,
-})
-Corner(SearchWrap, 14)
-Stroke(SearchWrap, Color3.fromRGB(40, 40, 65), 1.5)
+local SearchBox = Instance.new("TextBox", Main)
+SearchBox.Size = UDim2.new(0.9, 0, 0, 35); SearchBox.Position = UDim2.new(0.05, 0, 0, 78)
+SearchBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25); SearchBox.PlaceholderText = "Search scripts..."
+SearchBox.Text = ""; SearchBox.TextColor3 = Color3.new(1, 1, 1)
+SearchBox.Font = Enum.Font.Gotham; SearchBox.TextSize = 14
+Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 8)
 
-Label(SearchWrap, {
-    Size     = UDim2.new(0, 20, 1, 0),
-    Position = UDim2.new(0, 12, 0, 0),
-    Text     = "🔍",
-    TextColor3 = Config.TextMuted,
-    Font     = Enum.Font.Gotham,
-    TextSize = 15,
-    ZIndex   = 7,
-})
-
-local SearchBox = Instance.new("TextBox", SearchWrap)
-SearchBox.Size            = UDim2.new(1, -50, 1, 0)
-SearchBox.Position        = UDim2.new(0, 38, 0, 0)
-SearchBox.BackgroundTransparency = 1
-SearchBox.PlaceholderText = "Search scripts..."
-SearchBox.PlaceholderColor3 = Config.TextMuted
-SearchBox.Text            = ""
-SearchBox.TextColor3      = Config.TextMain
-SearchBox.Font            = Enum.Font.Gotham
-SearchBox.TextSize        = 14
-SearchBox.ClearTextOnFocus = false
-SearchBox.ZIndex          = 7
-
--- ============================================================
--- [ SCROLL LIST ]
--- ============================================================
 local ScrollFrame = Instance.new("ScrollingFrame", Main)
-ScrollFrame.Size                = UDim2.new(1, -10, 1, -150)
-ScrollFrame.Position            = UDim2.new(0, 5, 0, 148)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.ScrollBarThickness  = 3
-ScrollFrame.ScrollBarImageColor3 = Config.Accent
+ScrollFrame.Size = UDim2.new(0.9, 0, 1, -180); ScrollFrame.Position = UDim2.new(0.05, 0, 0, 120)
+ScrollFrame.BackgroundTransparency = 1; ScrollFrame.ScrollBarThickness = 2
 ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ScrollFrame.CanvasSize          = UDim2.new(0, 0, 0, 0)
-ScrollFrame.ElasticBehavior     = Enum.ElasticBehavior.Always
-ScrollFrame.ZIndex              = 6
-
-local Padding = Instance.new("UIPadding", ScrollFrame)
-Padding.PaddingLeft   = UDim.new(0, 8)
-Padding.PaddingRight  = UDim.new(0, 8)
-Padding.PaddingTop    = UDim.new(0, 6)
-Padding.PaddingBottom = UDim.new(0, 10)
-
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 local ListLayout = Instance.new("UIListLayout", ScrollFrame)
-ListLayout.Padding    = UDim.new(0, 8)
-ListLayout.SortOrder  = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 8)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- ============================================================
--- [ DETAIL BOTTOM SHEET ]
--- ============================================================
--- Sits inside Main, slides up from bottom when a script is tapped
-local Sheet = Frame(Main, {
-    Size             = UDim2.new(1, 0, 0, Config.H + 10),
-    Position         = UDim2.new(0, 0, 1, 10),  -- hidden below
-    BackgroundColor3 = Color3.fromRGB(16, 16, 24),
-    ClipsDescendants = false,
-    ZIndex           = 15,
-})
-Corner(Sheet, 22)
-Stroke(Sheet, Config.Accent, 2)
-
--- drag handle
-local Handle = Frame(Sheet, {
-    Size             = UDim2.new(0, 48, 0, 5),
-    Position         = UDim2.new(0.5, -24, 0, 12),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 90),
-    ZIndex           = 16,
-})
-Corner(Handle, 4)
-
--- Back arrow
-local BackBtn = Btn(Sheet, {
-    Size             = UDim2.new(0, 44, 0, 44),
-    Position         = UDim2.new(0, 10, 0, 20),
-    BackgroundColor3 = Color3.fromRGB(24, 24, 38),
-    Text             = "←",
-    TextColor3       = Config.Accent,
-    Font             = Enum.Font.GothamBold,
-    TextSize         = 20,
-    ZIndex           = 16,
-})
-Corner(BackBtn, 14)
-
--- Script name in sheet
-local SheetTitle = Label(Sheet, {
-    Size     = UDim2.new(1, -70, 0, 44),
-    Position = UDim2.new(0, 60, 0, 22),
-    Text     = "",
-    TextColor3 = Config.TextMain,
-    Font     = Enum.Font.GothamBold,
-    TextSize = 18,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    TextWrapped = true,
-    ZIndex   = 16,
-})
-
--- NEW badge in sheet
-local SheetNewBadge = Frame(Sheet, {
-    Size             = UDim2.new(0, 48, 0, 20),
-    Position         = UDim2.new(0, 16, 0, 72),
-    BackgroundColor3 = Config.NewBadge,
-    Visible          = false,
-    ZIndex           = 16,
-})
-Corner(SheetNewBadge, 10)
-Label(SheetNewBadge, {
-    Size = UDim2.new(1,0,1,0),
-    Text = "🆕 NEW",
-    TextColor3 = Color3.new(1,1,1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 10,
-    ZIndex = 17,
-})
-
--- Divider
-local Divider = Frame(Sheet, {
-    Size             = UDim2.new(1, -32, 0, 1),
-    Position         = UDim2.new(0, 16, 0, 100),
-    BackgroundColor3 = Color3.fromRGB(35, 35, 55),
-    ZIndex           = 16,
-})
-
--- Features section label
-Label(Sheet, {
-    Size     = UDim2.new(1, -32, 0, 22),
-    Position = UDim2.new(0, 16, 0, 112),
-    Text     = "FEATURES",
-    TextColor3 = Config.Accent,
-    Font     = Enum.Font.GothamBold,
-    TextSize = 11,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    ZIndex   = 16,
-})
-
--- Features body
-local FeaturesBox = Frame(Sheet, {
-    Size             = UDim2.new(1, -32, 0, 120),
-    Position         = UDim2.new(0, 16, 0, 138),
-    BackgroundColor3 = Color3.fromRGB(20, 20, 32),
-    ZIndex           = 16,
-})
-Corner(FeaturesBox, 14)
-Stroke(FeaturesBox, Color3.fromRGB(35, 35, 60), 1)
-
-Label(FeaturesBox, {
-    Size     = UDim2.new(1, -20, 1, -10),
-    Position = UDim2.new(0, 10, 0, 5),
-    Text     = "The features weren't mentioned, so try it\nout and give us your feedback! 💬",
-    TextColor3 = Config.TextMuted,
-    Font     = Enum.Font.Gotham,
-    TextSize = 13,
-    TextWrapped = true,
-    ZIndex   = 17,
-})
-
--- Execute button
-local ExecBtn = Btn(Sheet, {
-    Size             = UDim2.new(1, -32, 0, 56),
-    Position         = UDim2.new(0, 16, 0, 272),
-    BackgroundColor3 = Config.Accent,
-    Text             = "⚡  EXECUTE SCRIPT",
-    TextColor3       = Color3.new(1, 1, 1),
-    Font             = Enum.Font.GothamBold,
-    TextSize         = 16,
-    ZIndex           = 16,
-})
-Corner(ExecBtn, 16)
-
--- Gradient on exec button
-local execGrad = Instance.new("UIGradient", ExecBtn)
-execGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 160, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 100, 220)),
-})
-execGrad.Rotation = 45
-
--- Hover glow effect on execute
-ExecBtn.MouseEnter:Connect(function()
-    Tween(ExecBtn, 0.2, Enum.EasingStyle.Quart)({BackgroundColor3 = Config.AccentGlow})
-    TweenService:Create(ExecBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-        {BackgroundColor3 = Config.AccentGlow}):Play()
-end)
-ExecBtn.MouseLeave:Connect(function()
-    TweenService:Create(ExecBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-        {BackgroundColor3 = Config.Accent}):Play()
-end)
-
--- ============================================================
--- [ SHEET OPEN / CLOSE LOGIC ]
--- ============================================================
-local sheetOpen   = false
-local currentData = nil
-
-local function OpenSheet(data)
-    if sheetOpen then return end
-    sheetOpen   = true
-    currentData = data
-
-    PlaySound(Sounds.Sheet)
-    SheetTitle.Text      = data.Name
-    SheetNewBadge.Visible = data.New == true
-
-    -- slide up
-    TweenService:Create(Sheet, TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0, 0, 0, 0)
-    }):Play()
+-- [ 3. LOGIC FUNCTIONS ]
+local function ToggleUI(state)
+    if state then
+        Main.Visible = true; Blur.Enabled = true
+        TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 400, 0, 450), Position = UDim2.new(0.5, -200, 0.5, -225)}):Play()
+        TweenService:Create(Blur, TweenInfo.new(0.5), {Size = 20}):Play()
+    else
+        TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+        local b = TweenService:Create(Blur, TweenInfo.new(0.4), {Size = 0}); b:Play()
+        b.Completed:Connect(function() Blur.Enabled = false; Main.Visible = false end)
+    end
 end
 
-local function CloseSheet()
-    if not sheetOpen then return end
-    sheetOpen = false
-    PlaySound(Sounds.Close)
-    TweenService:Create(Sheet, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-        Position = UDim2.new(0, 0, 1, 10)
-    }):Play()
-end
-
-BackBtn.MouseButton1Click:Connect(function()
-    PlaySound(Sounds.Click)
-    CloseSheet()
-end)
-
-ExecBtn.MouseButton1Click:Connect(function()
-    if not currentData then return end
-    PlaySound(Sounds.Execute)
-    -- pulse animation on button
-    TweenService:Create(ExecBtn, TweenInfo.new(0.1), {BackgroundColor3 = Config.Green}):Play()
-    task.wait(0.12)
-    TweenService:Create(ExecBtn, TweenInfo.new(0.1), {BackgroundColor3 = Config.Accent}):Play()
-    -- notify & execute
-    local name   = currentData.Name
-    local source = currentData.Source
+local function FinalExit(name, source)
     SendLog(name)
-    CustomNotify("⚡ Executing", name, Config.Green)
-    task.wait(0.8)
-    -- close everything
-    CloseSheet()
-    task.wait(0.4)
-    TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-        Size     = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-    }):Play()
-    TweenService:Create(Blur, TweenInfo.new(0.4), {Size = 0}):Play()
-    task.wait(0.45)
-    pcall(function() Blur.Enabled = false; ScreenGui:Destroy() end)
+    CustomNotify("LP10 HUB", "Executing: " .. name)
+    ToggleUI(false)
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0)}):Play()
+    task.wait(0.6)
+    Blur:Destroy(); ScreenGui:Destroy()
     loadstring(source)()
-end)
-
--- ============================================================
--- [ SCRIPT CARD BUILDER ]
--- ============================================================
-local function MakeCard(data, order)
-    local card = Btn(ScrollFrame, {
-        Name             = data.Name,
-        Size             = UDim2.new(1, 0, 0, 58),
-        BackgroundColor3 = Config.Card,
-        Text             = "",
-        LayoutOrder      = order,
-        ZIndex           = 7,
-        AutoButtonColor  = false,
-    })
-    Corner(card, 14)
-
-    if data.New then
-        Stroke(card, Config.NewBadge, 1.5)
-    else
-        Stroke(card, Color3.fromRGB(32, 32, 50), 1)
-    end
-
-    -- Accent left bar
-    local bar = Frame(card, {
-        Size             = UDim2.new(0, 3, 1, -16),
-        Position         = UDim2.new(0, 8, 0, 8),
-        BackgroundColor3 = data.New and Config.NewBadge or Config.Accent,
-        ZIndex           = 8,
-    })
-    Corner(bar, 4)
-
-    -- Script name
-    Label(card, {
-        Size     = UDim2.new(1, -56, 1, 0),
-        Position = UDim2.new(0, 20, 0, 0),
-        Text     = data.Name,
-        TextColor3 = Config.TextMain,
-        Font     = Enum.Font.GothamSemibold,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true,
-        ZIndex   = 8,
-    })
-
-    -- NEW badge
-    if data.New then
-        local badge = Frame(card, {
-            Size             = UDim2.new(0, 40, 0, 18),
-            Position         = UDim2.new(1, -48, 0.5, -9),
-            BackgroundColor3 = Config.NewBadge,
-            ZIndex           = 9,
-        })
-        Corner(badge, 9)
-        Label(badge, {
-            Size = UDim2.new(1,0,1,0),
-            Text = "NEW",
-            TextColor3 = Color3.new(1,1,1),
-            Font = Enum.Font.GothamBold,
-            TextSize = 9,
-            ZIndex = 10,
-        })
-    else
-        -- Arrow indicator
-        Label(card, {
-            Size     = UDim2.new(0, 24, 0, 24),
-            Position = UDim2.new(1, -32, 0.5, -12),
-            Text     = "›",
-            TextColor3 = Color3.fromRGB(60, 60, 90),
-            Font     = Enum.Font.GothamBold,
-            TextSize = 22,
-            ZIndex   = 8,
-        })
-    end
-
-    -- Hover / press animations
-    card.MouseEnter:Connect(function()
-        TweenService:Create(card, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            {BackgroundColor3 = Config.CardHover}):Play()
-    end)
-    card.MouseLeave:Connect(function()
-        TweenService:Create(card, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            {BackgroundColor3 = Config.Card}):Play()
-    end)
-    card.MouseButton1Down:Connect(function()
-        TweenService:Create(card, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 55)}):Play()
-    end)
-    card.MouseButton1Up:Connect(function()
-        TweenService:Create(card, TweenInfo.new(0.1), {BackgroundColor3 = Config.CardHover}):Play()
-    end)
-
-    card.MouseButton1Click:Connect(function()
-        PlaySound(Sounds.Click)
-        if sheetOpen then CloseSheet(); task.wait(0.2) end
-        OpenSheet(data)
-    end)
-
-    return card
 end
 
--- ============================================================
--- [ SEARCH & LIST UPDATE ]
--- ============================================================
 local function UpdateList()
-    -- Remove old cards
-    for _, c in pairs(ScrollFrame:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
     end
-    local query = SearchBox.Text:lower()
-    local order = 0
-    for _, data in ipairs(ScriptsData) do
-        if data.Name:lower():find(query, 1, true) then
-            order = order + 1
-            MakeCard(data, order)
+    for i, data in pairs(ScriptsData) do
+        if data.Name:lower():find(SearchBox.Text:lower()) then
+            local Btn = Instance.new("TextButton", ScrollFrame)
+            Btn.Name = data.Name
+            Btn.Size = UDim2.new(1, -10, 0, 50)
+            Btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+            Btn.Text = "  " .. data.Name
+            Btn.TextColor3 = Color3.new(0.9,0.9,0.9)
+            Btn.Font = Enum.Font.GothamSemibold
+            Btn.TextSize = 15
+            Btn.TextXAlignment = Enum.TextXAlignment.Left
+            Instance.new("UICorner", Btn)
+            
+            -- Red border for new scripts (Cheese Escape & Build a Store)
+            if data.New then
+                local BtnStroke = Instance.new("UIStroke", Btn)
+                BtnStroke.Color = Config.UpdateColor
+                BtnStroke.Thickness = 1.5
+            end
+            
+            Btn.LayoutOrder = i
+            Btn.MouseButton1Click:Connect(function() FinalExit(data.Name, data.Source) end)
         end
     end
 end
 
-SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-    if sheetOpen then CloseSheet() end
-    UpdateList()
-end)
+SearchBox:GetPropertyChangedSignal("Text"):Connect(UpdateList)
 UpdateList()
 
--- ============================================================
--- [ MAIN OPEN / CLOSE ]
--- ============================================================
-local isOpen = false
-local function OpenMain()
-    isOpen = true
-    Main.Size     = UDim2.new(0, 0, 0, 0)
-    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Main.Visible  = true
-    Blur.Enabled  = true
-    PlaySound(Sounds.Open)
-    TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Size     = UDim2.new(0, Config.W, 0, Config.H),
-        Position = UDim2.new(0.5, -Config.W/2, 0.5, -Config.H/2),
-    }):Play()
-    TweenService:Create(Blur, TweenInfo.new(0.5), {Size = 18}):Play()
+ResizeHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        _G.IsResizing = true
+        local startSize = Main.Size; local startMouse = input.Position
+        local connection
+        connection = UserInputService.InputChanged:Connect(function(move)
+            local delta = move.Position - startMouse
+            Main.Size = UDim2.new(0, math.clamp(startSize.X.Offset + delta.X, Config.MinSize.X, Config.MaxSize.X), 0, math.clamp(startSize.Y.Offset + delta.Y, Config.MinSize.Y, Config.MaxSize.Y))
+        end)
+        UserInputService.InputEnded:Connect(function(up)
+            if up.UserInputType == Enum.UserInputType.MouseButton1 or up.UserInputType == Enum.UserInputType.Touch then
+                _G.IsResizing = false; connection:Disconnect()
+            end
+        end)
+    end
+end)
+
+local function MakeDraggable(frame)
+    local dragging, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not _G.IsResizing then
+            dragging = true; dragStart = input.Position; startPos = frame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
 end
 
-local function CloseMain()
-    isOpen = false
-    if sheetOpen then CloseSheet() end
-    PlaySound(Sounds.Close)
-    TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-        Size     = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-    }):Play()
-    TweenService:Create(Blur, TweenInfo.new(0.4), {Size = 0}):Play()
-    task.delay(0.45, function() Blur.Enabled = false; Main.Visible = false end)
-end
+MakeDraggable(Main); MakeDraggable(ToggleBtn)
+local open = false
+ToggleBtn.MouseButton1Click:Connect(function() open = not open; ToggleUI(open) end)
 
-CloseBtn.MouseButton1Click:Connect(function()
-    PlaySound(Sounds.Click)
-    CloseMain()
-end)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    PlaySound(Sounds.Click)
-    if isOpen then CloseMain() else OpenMain() end
-end)
-
--- ============================================================
--- [ DRAGGABLE MAIN FRAME ]
--- ============================================================
-local dragging, dragStart, startPos
-HeaderFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragging  = true
-        dragStart = input.Position
-        startPos  = Main.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (
-        input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch
-    ) then
-        local delta = input.Position - dragStart
-        Main.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-
--- ============================================================
--- [ LAUNCH SEQUENCE ]
--- ============================================================
 task.spawn(function()
     SplashIntro()
     ToggleBtn.Visible = true
-    -- bounce the toggle btn
-    TweenService:Create(ToggleBtn, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Size     = UDim2.new(0, 80, 0, 40),
-    }):Play()
-    task.wait(0.3)
-    OpenMain()
-    task.wait(0.6)
-    CustomNotify("💎 LP10 HUB", "27 scripts ready  •  June 6 Update", Config.Accent)
+    open = true
+    ToggleUI(true)
+    CustomNotify("LP10 HUB", "Universal Edition Ready! (27 Scripts) | June 6 Update")
 end)
