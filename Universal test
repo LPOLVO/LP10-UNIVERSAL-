@@ -2070,10 +2070,15 @@ local function frame(parent, values)
     return object
 end
 
+local ElectricTextTargets = {}
+
 local function label(parent, values)
     local object = new("TextLabel", parent, values)
     object.BackgroundTransparency = 1
     object.TextWrapped = values and values.TextWrapped or false
+    object.TextStrokeColor3 = C.electric
+    object.TextStrokeTransparency = 0.58
+    table.insert(ElectricTextTargets, object)
     return object
 end
 
@@ -2081,6 +2086,9 @@ local function button(parent, values)
     local object = new("TextButton", parent, values)
     object.AutoButtonColor = false
     object.BorderSizePixel = 0
+    object.TextStrokeColor3 = C.electric
+    object.TextStrokeTransparency = 0.58
+    table.insert(ElectricTextTargets, object)
     return object
 end
 
@@ -2300,28 +2308,21 @@ end
 
 local VP = Camera.ViewportSize
 local function initialSize()
-    if VP.X < 560 then
-        return math.max(300, math.floor(VP.X * 0.90)), math.max(390, math.floor(VP.Y * 0.74))
-    end
-    if VP.X < 1000 then
-        return math.min(650, VP.X - 90), math.min(700, VP.Y - 120)
-    end
-    -- Keep the hub comfortably inside short landscape Roblox windows.
-    return math.min(820, VP.X - 32), math.min(560, VP.Y - 36)
+    -- LP10 is an application surface, not a floating window. Keep it
+    -- edge-to-edge on every executor viewport so the library always has
+    -- the same full-screen presence as the reference interface.
+    return VP.X, VP.Y
 end
 
 local WIN_W, WIN_H = initialSize()
-local MIN_W, MIN_H = 290, 370
-local MAX_W, MAX_H = 1300, 900
 local Main = frame(GUI, {
-    Size = UDim2.fromOffset(WIN_W, WIN_H),
-    Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2),
+    Size = UDim2.fromScale(1, 1),
+    Position = UDim2.fromScale(0, 0),
     BackgroundColor3 = C.bg,
     Visible = false,
     ClipsDescendants = true,
     ZIndex = 5,
 })
-round(Main, 22)
 outline(Main, C.line, 1.4)
 
 -- Forward declarations keep callbacks created during the first render
@@ -2329,13 +2330,13 @@ outline(Main, C.line, 1.4)
 local refresh
 local changePage
 local cycleMode
+local applySize
 
 local MainBack = frame(Main, {
     Size = UDim2.fromScale(1, 1),
     BackgroundColor3 = C.surface,
     ZIndex = 5,
 })
-round(MainBack, 22)
 fillGradient(MainBack, Color3.fromRGB(11, 17, 39), C.bg, 135)
 
 -- Lightweight animated aurora layer. It lives behind the application
@@ -2437,7 +2438,6 @@ local Inner = frame(Main, {
     ClipsDescendants = true,
     ZIndex = 6,
 })
-round(Inner, 22)
 
 local Header = frame(Inner, {
     Size = UDim2.new(1, 0, 0, 62),
@@ -2701,6 +2701,9 @@ local SearchBox = new("TextBox", SearchWrap, {
     TextXAlignment = Enum.TextXAlignment.Left,
     ZIndex = 16,
 })
+SearchBox.TextStrokeColor3 = C.electric
+SearchBox.TextStrokeTransparency = 0.58
+table.insert(ElectricTextTargets, SearchBox)
 local SearchClear = button(SearchWrap, {
     Size = UDim2.fromOffset(24, 24),
     Position = UDim2.new(1, -32, 0.5, -12),
@@ -3154,7 +3157,7 @@ local function buildChangelog()
         {"AURORA SHELL", "A complete application-style interface with responsive layouts, navigation, and premium motion.", "CURRENT"},
         {"DETAIL FIRST", "Scripts now open in a dedicated detail view before they execute.", "NEW"},
         {"PERFORMANCE", "Adaptive effects, reduce-motion support, and live performance telemetry.", "IMPROVED"},
-        {"WINDOW CONTROL", "Resizable, draggable, compact, mini, and PC fullscreen modes.", "NEW"},
+        {"FULL-SCREEN SHELL", "Edge-to-edge presentation with a locked viewport and staged launch animation.", "NEW"},
     }
     for index, entry in ipairs(entries) do
         local item = actionCard(Body, entry[1], entry[2], nil, index == 1 and C.electric or C.violet)
@@ -3195,8 +3198,8 @@ local function buildSettings()
     makeToggle(Body, "Performance mode", "Reduce expensive effects automatically.", "performance", 6)
     makeToggle(Body, "UI sounds", "Feedback for navigation and actions.", "sounds", 7)
     sectionTitle(Body, "WINDOW", 7)
-    actionCard(Body, "Cycle window mode", "Normal, compact, mini, fullscreen", function() cycleMode() end, C.electric).LayoutOrder = 9
-    actionCard(Body, "Reset interface position", "Center the window on screen", function() Main.Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2); toast("Window centered", "Your workspace is back in focus.", C.electric) end, C.violet).LayoutOrder = 10
+    actionCard(Body, "Full-screen lock", "Keep LP10 edge-to-edge and fixed to the viewport", function() cycleMode() end, C.electric).LayoutOrder = 9
+    actionCard(Body, "Reapply full-screen", "Restore the locked viewport layout", function() applySize(Camera.ViewportSize.X, Camera.ViewportSize.Y, false); toast("Full-screen restored", "LP10 is fixed to the viewport.", C.violet) end, C.violet).LayoutOrder = 10
 end
 
 local function buildAbout()
@@ -3289,17 +3292,6 @@ fillGradient(DetailExecute, C.electric, C.royal, 0)
 wireButton(DetailExecute, C.electric, C.royal)
 DetailExecute.MouseButton1Click:Connect(function() executeScript(CurrentScript) end)
 
-local ResizeHandle = button(Main, {
-    Size = UDim2.fromOffset(34, 34),
-    Position = UDim2.new(1, -34, 1, -34),
-    BackgroundTransparency = 1,
-    Text = "//",
-    TextColor3 = C.ice,
-    Font = Enum.Font.GothamBold,
-    TextSize = 12,
-    ZIndex = 40,
-})
-
 local RestoreOrb = button(GUI, {
     Size = UDim2.fromOffset(58, 58),
     Position = UDim2.new(0, 18, 0.5, -29),
@@ -3319,16 +3311,19 @@ glow(RestoreOrb, 120, C.electric, 0.72, UDim2.new(0.5, -60, 0.5, -60))
 RestoreOrb.MouseButton1Click:Connect(function()
     RestoreOrb.Visible = false
     Main.Visible = true
-    Main.Size = UDim2.fromOffset(0, 0)
-    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Main.Size = UDim2.fromScale(0, 0)
+    Main.Position = UDim2.fromScale(0.5, 0.5)
     if Settings.blur then Blur.Enabled = true; tween(Blur, 0.35, {Size = 12}) end
-    spring(Main, 0.42, {Size = UDim2.fromOffset(WIN_W, WIN_H), Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2)})
+    spring(Main, 0.42, {Size = UDim2.fromScale(1, 1), Position = UDim2.fromScale(0, 0)})
 end)
 
-local function applySize(width, height, animate)
-    WIN_W, WIN_H = math.clamp(math.floor(width), MIN_W, MAX_W), math.clamp(math.floor(height), MIN_H, MAX_H)
-    local value = UDim2.fromOffset(WIN_W, WIN_H)
-    if animate then tween(Main, 0.25, {Size = value, Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2)}) else Main.Size = value end
+applySize = function(width, height, animate)
+    local viewport = Camera.ViewportSize
+    WIN_W, WIN_H = viewport.X, viewport.Y
+    if not animate then
+        Main.Size = UDim2.fromScale(1, 1)
+        Main.Position = UDim2.fromScale(0, 0)
+    end
     local narrow = WIN_W < 640
     Side.Visible = not narrow
     Content.Position = narrow and UDim2.fromOffset(0, 62) or UDim2.fromOffset(174, 62)
@@ -3339,65 +3334,18 @@ local function applySize(width, height, animate)
     -- with the window controls on short landscape devices.
     Stats.Visible = WIN_W > 700
     Clock.Visible = WIN_W > 700
-    ResizeHandle.Visible = WIN_W >= 520
+    -- Deliberately no resize handle: LP10 is locked to the viewport.
 end
 
-local resizeActive, resizeStart, resizeBase = false, nil, nil
-ResizeHandle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        resizeActive = true
-        resizeStart = input.Position
-        resizeBase = Vector2.new(WIN_W, WIN_H)
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if resizeActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - resizeStart
-        applySize(resizeBase.X + delta.X, resizeBase.Y + delta.Y, false)
-    end
-end)
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then resizeActive = false end
-end)
-
-local dragActive, dragStart, dragBase = false, nil, nil
-Header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragActive, dragStart, dragBase = true, input.Position, Main.Position
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if dragActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        Main.Position = UDim2.new(dragBase.X.Scale, dragBase.X.Offset + delta.X, dragBase.Y.Scale, dragBase.Y.Offset + delta.Y)
-    end
-end)
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragActive = false end
-end)
-
 Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-    local viewport = Camera.ViewportSize
-    if viewport.X < MIN_W + 30 or viewport.Y < MIN_H + 30 then
-        applySize(math.max(MIN_W, viewport.X - 18), math.max(MIN_H, viewport.Y - 46), false)
-    elseif UIS.TouchEnabled and viewport.X < 760 then
-        applySize(math.min(WIN_W, viewport.X - 18), math.min(WIN_H, viewport.Y - 46), false)
-    end
+    applySize(Camera.ViewportSize.X, Camera.ViewportSize.Y, false)
 end)
 
 cycleMode = function()
-    local order = {"Normal", "Compact", "Mini", "Fullscreen"}
-    local current = 1
-    for index, mode in ipairs(order) do if mode == Persist.mode then current = index end end
-    local nextMode = order[current % #order + 1]
-    if nextMode == "Fullscreen" and UIS.TouchEnabled then nextMode = "Normal" end
-    Persist.mode = nextMode
-    ModeBtn.Text = string.sub(nextMode, 1, 1)
-    if nextMode == "Normal" then applySize(920, 640, true)
-    elseif nextMode == "Compact" then applySize(760, 540, true)
-    elseif nextMode == "Mini" then applySize(420, 430, true)
-    else applySize(Camera.ViewportSize.X - 24, Camera.ViewportSize.Y - 24, true) end
-    toast("Window mode", nextMode .. " mode active.", C.electric)
+    Persist.mode = "Fullscreen"
+    ModeBtn.Text = "F"
+    applySize(Camera.ViewportSize.X, Camera.ViewportSize.Y, false)
+    toast("Full-screen locked", "LP10 stays edge-to-edge and cannot be dragged or resized.", C.electric)
 end
 
 ModeBtn.MouseButton1Click:Connect(cycleMode)
@@ -3436,18 +3384,119 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
+local LaunchCurtain = frame(GUI, {
+    Name = "LP10LaunchCurtain",
+    Size = UDim2.fromScale(1, 1),
+    Position = UDim2.fromScale(0, 0),
+    BackgroundColor3 = C.bg,
+    ZIndex = 200,
+})
+local LaunchGlow = glow(LaunchCurtain, 420, C.electric, 0.78, UDim2.new(0.5, -210, 0.48, -210))
+LaunchGlow.ZIndex = 201
+local LaunchCore = frame(LaunchCurtain, {
+    Size = UDim2.fromOffset(360, 168),
+    Position = UDim2.new(0.5, -180, 0.5, -84),
+    BackgroundColor3 = C.panel,
+    ZIndex = 202,
+})
+round(LaunchCore, 22)
+outline(LaunchCore, C.line, 1.2)
+fillGradient(LaunchCore, Color3.fromRGB(18, 35, 76), C.panel, 135)
+label(LaunchCore, {
+    Size = UDim2.new(1, -32, 0, 32),
+    Position = UDim2.fromOffset(16, 18),
+    Text = "LP10 UNIVERSAL",
+    TextColor3 = C.white,
+    Font = Enum.Font.GothamBold,
+    TextSize = 22,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    ZIndex = 203,
+})
+local LaunchStatus = label(LaunchCore, {
+    Size = UDim2.new(1, -32, 0, 20),
+    Position = UDim2.fromOffset(16, 58),
+    Text = "CONNECTING TO AURORA SHELL",
+    TextColor3 = C.ice,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    ZIndex = 203,
+})
+local LaunchTrack = frame(LaunchCore, {
+    Size = UDim2.new(1, -46, 0, 5),
+    Position = UDim2.fromOffset(23, 104),
+    BackgroundColor3 = Color3.fromRGB(22, 31, 61),
+    ZIndex = 203,
+})
+round(LaunchTrack, 3)
+local LaunchFill = frame(LaunchTrack, {
+    Size = UDim2.new(0, 0, 1, 0),
+    BackgroundColor3 = C.electric,
+    ZIndex = 204,
+})
+round(LaunchFill, 3)
+local LaunchFoot = label(LaunchCore, {
+    Size = UDim2.new(1, -32, 0, 18),
+    Position = UDim2.fromOffset(16, 126),
+    Text = SCRIPT_COUNT .. " SCRIPTS  /  FULL-SCREEN MODE",
+    TextColor3 = C.muted,
+    Font = Enum.Font.GothamBold,
+    TextSize = 8,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    ZIndex = 203,
+})
+
+local electricPhase = 0
+local electricAccumulator = 0
+RunService.Heartbeat:Connect(function(dt)
+    electricPhase = electricPhase + dt * (Settings.reduceMotion and 1.4 or 3.8)
+    electricAccumulator = electricAccumulator + dt
+    if electricAccumulator < (Settings.performance and 0.14 or 0.07) then return end
+    electricAccumulator = 0
+    local pulse = 0.42 + ((math.sin(electricPhase) + 1) * 0.5) * 0.28
+    for index = #ElectricTextTargets, 1, -1 do
+        local target = ElectricTextTargets[index]
+        if target and target.Parent then
+            target.TextStrokeColor3 = Settings.glow and C.electric or target.TextColor3
+            target.TextStrokeTransparency = Settings.glow and pulse or 1
+        else
+            table.remove(ElectricTextTargets, index)
+        end
+    end
+end)
+
 local function openMain()
     applySize(WIN_W, WIN_H, false)
     Main.Visible = true
-    Main.Size = UDim2.fromOffset(0, 0)
-    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Main.Size = UDim2.fromScale(0.94, 0.94)
+    Main.Position = UDim2.fromScale(0.03, 0.03)
     if Settings.blur then Blur.Enabled = true; tween(Blur, 0.4, {Size = 12}) end
     play("open")
-    spring(Main, 0.5, {Size = UDim2.fromOffset(WIN_W, WIN_H), Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2)})
+    spring(Main, 0.5, {Size = UDim2.fromScale(1, 1), Position = UDim2.fromScale(0, 0)})
+    LaunchCurtain.Visible = true
+    LaunchCurtain.BackgroundTransparency = 0
+    LaunchCore.BackgroundTransparency = 0
+    LaunchFill.Size = UDim2.new(0, 0, 1, 0)
+    LaunchStatus.Text = "CONNECTING TO AURORA SHELL"
+    task.spawn(function()
+        tween(LaunchFill, 0.72, {Size = UDim2.fromScale(0.72, 1)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        task.wait(0.7)
+        LaunchStatus.Text = "LOADING " .. SCRIPT_COUNT .. " SCRIPTS"
+        tween(LaunchFill, 0.52, {Size = UDim2.fromScale(1, 1)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        task.wait(0.58)
+        LaunchStatus.Text = "AURORA ONLINE"
+        task.wait(0.32)
+        tween(LaunchCore, 0.22, {BackgroundTransparency = 1})
+        tween(LaunchGlow, 0.28, {ImageTransparency = 1})
+        tween(LaunchCurtain, 0.34, {BackgroundTransparency = 1})
+        task.wait(0.36)
+        if LaunchCurtain and LaunchCurtain.Parent then LaunchCurtain.Visible = false end
+    end)
 end
 
 applySize(WIN_W, WIN_H, false)
-ModeBtn.Text = string.sub(Persist.mode, 1, 1)
+Persist.mode = "Fullscreen"
+ModeBtn.Text = "F"
 refresh()
 openMain()
 task.delay(0.65, function() toast("LP10 Universal", SCRIPT_COUNT .. " scripts ready. Welcome to Aurora.", C.electric) end)
