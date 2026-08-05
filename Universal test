@@ -2300,14 +2300,19 @@ end
 
 local VP = Camera.ViewportSize
 local function initialSize()
-    if VP.X < 560 then return math.max(300, VP.X - 18), math.max(390, VP.Y - 46) end
-    if VP.X < 1000 then return math.min(700, VP.X - 70), math.min(760, VP.Y - 90) end
-    return 920, 640
+    if VP.X < 560 then
+        return math.max(300, math.floor(VP.X * 0.90)), math.max(390, math.floor(VP.Y * 0.74))
+    end
+    if VP.X < 1000 then
+        return math.min(650, VP.X - 90), math.min(700, VP.Y - 120)
+    end
+    -- Keep the hub comfortably inside short landscape Roblox windows.
+    return math.min(820, VP.X - 32), math.min(560, VP.Y - 36)
 end
 
 local WIN_W, WIN_H = initialSize()
-local MIN_W, MIN_H = 300, 390
-local MAX_W, MAX_H = 1500, 1000
+local MIN_W, MIN_H = 290, 370
+local MAX_W, MAX_H = 1300, 900
 local Main = frame(GUI, {
     Size = UDim2.fromOffset(WIN_W, WIN_H),
     Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2),
@@ -2332,6 +2337,99 @@ local MainBack = frame(Main, {
 })
 round(MainBack, 22)
 fillGradient(MainBack, Color3.fromRGB(11, 17, 39), C.bg, 135)
+
+-- Lightweight animated aurora layer. It lives behind the application
+-- content and automatically hides in reduce-motion/performance mode.
+local AuroraFX = frame(Main, {
+    Name = "AuroraBackground",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    ClipsDescendants = true,
+    ZIndex = 5,
+})
+round(AuroraFX, 22)
+
+local AuroraOne = new("ImageLabel", AuroraFX, {
+    Image = GLOW_IMG,
+    ImageColor3 = Color3.fromRGB(36, 118, 255),
+    ImageTransparency = 0.80,
+    BackgroundTransparency = 1,
+    Size = UDim2.fromOffset(390, 390),
+    Position = UDim2.new(0.05, -195, 0.10, -195),
+    ZIndex = 5,
+})
+local AuroraTwo = new("ImageLabel", AuroraFX, {
+    Image = GLOW_IMG,
+    ImageColor3 = Color3.fromRGB(98, 64, 255),
+    ImageTransparency = 0.84,
+    BackgroundTransparency = 1,
+    Size = UDim2.fromOffset(330, 330),
+    Position = UDim2.new(0.95, -165, 0.82, -165),
+    ZIndex = 5,
+})
+local AuroraThree = new("ImageLabel", AuroraFX, {
+    Image = GLOW_IMG,
+    ImageColor3 = Color3.fromRGB(0, 194, 255),
+    ImageTransparency = 0.90,
+    BackgroundTransparency = 1,
+    Size = UDim2.fromOffset(250, 250),
+    Position = UDim2.new(0.58, -125, 1.05, -125),
+    ZIndex = 5,
+})
+local AuroraLine = frame(AuroraFX, {
+    Size = UDim2.new(1.5, 0, 0, 1),
+    Position = UDim2.new(-0.25, 0, 0.34, 0),
+    BackgroundColor3 = C.electric,
+    BackgroundTransparency = 0.92,
+    Rotation = -18,
+    ZIndex = 5,
+})
+
+local function animateAurora()
+    while GUI and GUI.Parent do
+        local active = Settings.particles and not Settings.performance and not Settings.reduceMotion
+        AuroraFX.Visible = active
+        if active then
+            tween(AuroraOne, 5.8, {
+                Position = UDim2.new(0.22, -195, 0.24, -195),
+                ImageTransparency = 0.88,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            tween(AuroraTwo, 6.4, {
+                Position = UDim2.new(0.78, -165, 0.68, -165),
+                ImageTransparency = 0.90,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            tween(AuroraThree, 4.8, {
+                Position = UDim2.new(0.42, -125, 0.86, -125),
+                ImageTransparency = 0.94,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            tween(AuroraLine, 7.2, {
+                Position = UDim2.new(0.05, 0, 0.62, 0),
+                BackgroundTransparency = 0.96,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(4.2)
+            tween(AuroraOne, 5.8, {
+                Position = UDim2.new(0.05, -195, 0.10, -195),
+                ImageTransparency = 0.80,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            tween(AuroraTwo, 6.4, {
+                Position = UDim2.new(0.95, -165, 0.82, -165),
+                ImageTransparency = 0.84,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            tween(AuroraThree, 4.8, {
+                Position = UDim2.new(0.58, -125, 1.05, -125),
+                ImageTransparency = 0.90,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            tween(AuroraLine, 7.2, {
+                Position = UDim2.new(-0.25, 0, 0.34, 0),
+                BackgroundTransparency = 0.92,
+            }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(4.2)
+        else
+            task.wait(0.7)
+        end
+    end
+end
+task.spawn(animateAurora)
 
 local Inner = frame(Main, {
     Size = UDim2.fromScale(1, 1),
@@ -2394,8 +2492,8 @@ local BrandSub = label(Header, {
 })
 
 local Stats = label(Header, {
-    Size = UDim2.fromOffset(250, 16),
-    Position = UDim2.new(1, -390, 0, 13),
+    Size = UDim2.fromOffset(220, 16),
+    Position = UDim2.new(1, -380, 0, 13),
     Text = "FPS 60    PING --ms    MEM --",
     TextColor3 = C.green,
     Font = Enum.Font.GothamSemibold,
@@ -2404,8 +2502,8 @@ local Stats = label(Header, {
     ZIndex = 22,
 })
 local Clock = label(Header, {
-    Size = UDim2.fromOffset(250, 15),
-    Position = UDim2.new(1, -390, 0, 34),
+    Size = UDim2.fromOffset(220, 15),
+    Position = UDim2.new(1, -380, 0, 34),
     Text = CURRENT_GAME .. "  /  " .. CURRENT_TIME,
     TextColor3 = C.muted,
     Font = Enum.Font.Gotham,
@@ -3237,8 +3335,10 @@ local function applySize(width, height, animate)
     Content.Size = narrow and UDim2.new(1, 0, 1, -62) or UDim2.new(1, -174, 1, -62)
     BrandTitle.Visible = not narrow
     BrandSub.Visible = not narrow
-    Stats.Visible = WIN_W > 500
-    Clock.Visible = WIN_W > 500
+    -- The telemetry line is intentionally hidden before it can collide
+    -- with the window controls on short landscape devices.
+    Stats.Visible = WIN_W > 700
+    Clock.Visible = WIN_W > 700
     ResizeHandle.Visible = WIN_W >= 520
 end
 
