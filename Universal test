@@ -399,6 +399,11 @@ local CATEGORIES = {
 -- ════════════════════════════════════════════════════════════
 -- GUI ROOT
 -- ════════════════════════════════════════════════════════════
+--[====[
+-- LP10 v5 interface archive. The original interface is retained below
+-- for reference, but the production surface is the redesigned shell
+-- appended after the archive. Script data and execution payloads above
+-- are intentionally outside this block and remain unchanged.
 pcall(function()
     local old = CoreGui:FindFirstChild("LP10_v5")
     if old then old:Destroy() end
@@ -1994,3 +1999,1355 @@ task.spawn(function()
         "LP"
     )
 end)
+]====]
+
+-- ════════════════════════════════════════════════════════════
+-- LP10 UNIVERSAL  |  AURORA SHELL
+-- ════════════════════════════════════════════════════════════
+-- This interface layer deliberately keeps Scripts and every S field above
+-- untouched. It only provides a new shell around the existing hub.
+
+local Players          = game:GetService("Players")
+local UIS              = game:GetService("UserInputService")
+local CoreGui          = game:GetService("CoreGui")
+local TweenService     = game:GetService("TweenService")
+local Lighting         = game:GetService("Lighting")
+local HttpService      = game:GetService("HttpService")
+local SoundService     = game:GetService("SoundService")
+local RunService       = game:GetService("RunService")
+local Marketplace      = game:GetService("MarketplaceService")
+local LocalPlayer      = Players.LocalPlayer
+local Camera           = workspace.CurrentCamera
+
+local C = {
+    bg        = Color3.fromRGB(5, 7, 16),
+    surface   = Color3.fromRGB(9, 13, 27),
+    panel     = Color3.fromRGB(12, 17, 35),
+    card      = Color3.fromRGB(15, 22, 45),
+    cardHot   = Color3.fromRGB(21, 31, 62),
+    line      = Color3.fromRGB(31, 48, 95),
+    royal     = Color3.fromRGB(65, 105, 225),
+    electric  = Color3.fromRGB(41, 145, 255),
+    ice       = Color3.fromRGB(137, 196, 255),
+    white     = Color3.fromRGB(235, 242, 255),
+    text      = Color3.fromRGB(169, 185, 224),
+    muted     = Color3.fromRGB(99, 118, 164),
+    green     = Color3.fromRGB(52, 224, 145),
+    yellow    = Color3.fromRGB(255, 198, 74),
+    red       = Color3.fromRGB(255, 83, 105),
+    violet    = Color3.fromRGB(142, 106, 255),
+}
+
+local Persist = {}
+pcall(function()
+    local env = getgenv and getgenv()
+    if env then
+        env.LP10AuroraState = env.LP10AuroraState or {}
+        Persist = env.LP10AuroraState
+    end
+end)
+Persist.page = Persist.page or "Home"
+Persist.mode = Persist.mode or "Normal"
+Persist.favorites = Persist.favorites or {}
+Persist.pinned = Persist.pinned or {}
+Persist.recent = Persist.recent or {}
+Persist.recentGames = Persist.recentGames or {}
+
+local function prop(obj, values)
+    for key, value in pairs(values or {}) do obj[key] = value end
+    return obj
+end
+
+local function new(class, parent, values)
+    local object = Instance.new(class)
+    object.Parent = parent
+    return prop(object, values)
+end
+
+local function frame(parent, values)
+    local object = new("Frame", parent, values)
+    object.BorderSizePixel = 0
+    return object
+end
+
+local function label(parent, values)
+    local object = new("TextLabel", parent, values)
+    object.BackgroundTransparency = 1
+    object.TextWrapped = values and values.TextWrapped or false
+    return object
+end
+
+local function button(parent, values)
+    local object = new("TextButton", parent, values)
+    object.AutoButtonColor = false
+    object.BorderSizePixel = 0
+    return object
+end
+
+local function round(object, radius)
+    local item = new("UICorner", object, {CornerRadius = UDim.new(0, radius or 12)})
+    return item
+end
+
+local function outline(object, color, thickness, transparency)
+    return new("UIStroke", object, {
+        Color = color or C.line,
+        Thickness = thickness or 1,
+        Transparency = transparency or 0,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    })
+end
+
+local function fillGradient(object, first, second, rotation)
+    return new("UIGradient", object, {
+        Color = ColorSequence.new(first, second),
+        Rotation = rotation or 90,
+    })
+end
+
+local function inset(object, left, right, top, bottom)
+    return new("UIPadding", object, {
+        PaddingLeft = UDim.new(0, left or 0),
+        PaddingRight = UDim.new(0, right or 0),
+        PaddingTop = UDim.new(0, top or 0),
+        PaddingBottom = UDim.new(0, bottom or 0),
+    })
+end
+
+local function glow(parent, size, color, transparency, position)
+    local object = new("ImageLabel", parent, {
+        Image = "rbxassetid://5028857084",
+        ImageColor3 = color or C.royal,
+        ImageTransparency = transparency or 0.7,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(size, size),
+        Position = position or UDim2.new(0.5, -size / 2, 0.5, -size / 2),
+        ZIndex = 1,
+    })
+    return object
+end
+
+local function setClipboard(text)
+    pcall(function()
+        if setclipboard then setclipboard(text) end
+    end)
+end
+
+local function executorName()
+    if syn then return "Synapse X" end
+    if KRNL_ENV then return "Krnl" end
+    for _, fn in ipairs({getexecutorname, identifyexecutor}) do
+        if fn then
+            local ok, value = pcall(fn)
+            if ok and value then return tostring(value) end
+        end
+    end
+    return UIS.TouchEnabled and "Mobile Executor" or "Delta / Unknown"
+end
+
+local EXECUTOR = executorName()
+local function gameName()
+    local result = "Unknown Experience"
+    pcall(function() result = Marketplace:GetProductInfo(game.PlaceId).Name end)
+    return result
+end
+
+local CURRENT_GAME = gameName()
+local CURRENT_TIME = os.date("%H:%M")
+local GLOW_IMG = "rbxassetid://5028857084"
+
+-- Existing analytics behavior preserved from the uploaded hub.
+local function log(name)
+    task.spawn(function() pcall(function()
+        local p = Players.LocalPlayer
+        local req = (syn and syn.request) or request or http_request
+        req({
+            Url = "https://lp10-ai-server-production.up.railway.app/log",
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode({
+                username = p.Name,
+                userId = tostring(p.UserId),
+                game = CURRENT_GAME,
+                placeId = tostring(game.PlaceId),
+                jobId = game.JobId,
+                scriptName = name,
+            }),
+        })
+    end) end)
+end
+log("Just opened hub")
+
+pcall(function()
+    local previous = CoreGui:FindFirstChild("LP10_Aurora")
+    if previous then previous:Destroy() end
+end)
+
+local GUI = new("ScreenGui", CoreGui, {
+    Name = "LP10_Aurora",
+    IgnoreGuiInset = true,
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+})
+
+local Blur = new("BlurEffect", Lighting, {Name = "LP10_AuroraBlur", Size = 0, Enabled = false})
+
+local Settings = {
+    reduceMotion = false,
+    performance = false,
+    particles = true,
+    glow = true,
+    blur = true,
+    sounds = true,
+}
+
+local Sounds = {}
+pcall(function()
+    local function sound(id, volume, speed)
+        local item = new("Sound", SoundService, {
+            SoundId = "rbxassetid://" .. id,
+            Volume = volume,
+            PlaybackSpeed = speed,
+        })
+        return item
+    end
+    Sounds.tap = sound("6020394739", 0.16, 1.4)
+    Sounds.open = sound("6020394739", 0.25, 1.1)
+    Sounds.slide = sound("5997084542", 0.2, 1)
+    Sounds.exec = sound("4959484451", 0.45, 1)
+end)
+
+local function play(name)
+    if not Settings.sounds then return end
+    pcall(function() if Sounds[name] then Sounds[name]:Play() end end)
+end
+
+local function tween(object, duration, properties, style, direction)
+    local time = Settings.reduceMotion and math.min(duration, 0.12) or duration
+    local info = TweenInfo.new(time, style or Enum.EasingStyle.Quart, direction or Enum.EasingDirection.Out)
+    local item = TweenService:Create(object, info, properties)
+    item:Play()
+    return item
+end
+
+local function spring(object, duration, properties)
+    return tween(object, duration, properties, Enum.EasingStyle.Back)
+end
+
+local function toast(title, message, color)
+    local card = frame(GUI, {
+        Name = "AuroraToast",
+        Size = UDim2.fromOffset(310, 72),
+        Position = UDim2.new(1, 18, 1, -92),
+        BackgroundColor3 = C.panel,
+        ZIndex = 120,
+    })
+    round(card, 16)
+    outline(card, color or C.electric, 1.2)
+    fillGradient(card, Color3.fromRGB(18, 26, 55), C.surface, 135)
+    frame(card, {
+        Size = UDim2.new(0, 3, 1, -20),
+        Position = UDim2.fromOffset(10, 10),
+        BackgroundColor3 = color or C.electric,
+        ZIndex = 121,
+    })
+    label(card, {
+        Size = UDim2.new(1, -38, 0, 22),
+        Position = UDim2.fromOffset(26, 12),
+        Text = title,
+        TextColor3 = C.white,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 121,
+    })
+    label(card, {
+        Size = UDim2.new(1, -38, 0, 24),
+        Position = UDim2.fromOffset(26, 35),
+        Text = message,
+        TextColor3 = C.text,
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 121,
+    })
+    play("slide")
+    tween(card, 0.35, {Position = UDim2.new(1, -326, 1, -92)})
+    task.delay(3.2, function()
+        if card and card.Parent then
+            tween(card, 0.28, {Position = UDim2.new(1, 18, 1, -92)}, nil, Enum.EasingDirection.In)
+            task.wait(0.3)
+            pcall(function() card:Destroy() end)
+        end
+    end)
+end
+
+local function wireButton(item, base, hover)
+    item.MouseEnter:Connect(function()
+        tween(item, 0.14, {BackgroundColor3 = hover or C.cardHot})
+    end)
+    item.MouseLeave:Connect(function()
+        tween(item, 0.14, {BackgroundColor3 = base})
+    end)
+    item.MouseButton1Down:Connect(function()
+        spring(item, 0.1, {Size = UDim2.new(item.Size.X.Scale, item.Size.X.Offset - 4, item.Size.Y.Scale, item.Size.Y.Offset - 3)})
+    end)
+    item.MouseButton1Up:Connect(function()
+        spring(item, 0.16, {Size = UDim2.new(item.Size.X.Scale, item.Size.X.Offset + 4, item.Size.Y.Scale, item.Size.Y.Offset + 3)})
+    end)
+end
+
+local VP = Camera.ViewportSize
+local function initialSize()
+    if VP.X < 560 then return math.max(300, VP.X - 18), math.max(390, VP.Y - 46) end
+    if VP.X < 1000 then return math.min(700, VP.X - 70), math.min(760, VP.Y - 90) end
+    return 920, 640
+end
+
+local WIN_W, WIN_H = initialSize()
+local MIN_W, MIN_H = 300, 390
+local MAX_W, MAX_H = 1500, 1000
+local Main = frame(GUI, {
+    Size = UDim2.fromOffset(WIN_W, WIN_H),
+    Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2),
+    BackgroundColor3 = C.bg,
+    Visible = false,
+    ClipsDescendants = true,
+    ZIndex = 5,
+})
+round(Main, 22)
+outline(Main, C.line, 1.4)
+
+-- Forward declarations keep callbacks created during the first render
+-- connected to the final navigation/mode implementations below.
+local refresh
+local changePage
+local cycleMode
+
+local MainBack = frame(Main, {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = C.surface,
+    ZIndex = 5,
+})
+round(MainBack, 22)
+fillGradient(MainBack, Color3.fromRGB(11, 17, 39), C.bg, 135)
+
+local Inner = frame(Main, {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    ClipsDescendants = true,
+    ZIndex = 6,
+})
+round(Inner, 22)
+
+local Header = frame(Inner, {
+    Size = UDim2.new(1, 0, 0, 62),
+    BackgroundColor3 = Color3.fromRGB(8, 12, 27),
+    ZIndex = 20,
+})
+fillGradient(Header, Color3.fromRGB(13, 22, 49), Color3.fromRGB(8, 11, 24), 0)
+frame(Header, {
+    Size = UDim2.new(1, 0, 0, 1),
+    Position = UDim2.new(0, 0, 1, -1),
+    BackgroundColor3 = C.line,
+    ZIndex = 21,
+})
+
+local Brand = frame(Header, {
+    Size = UDim2.fromOffset(38, 38),
+    Position = UDim2.fromOffset(14, 12),
+    BackgroundColor3 = C.royal,
+    ZIndex = 22,
+})
+round(Brand, 12)
+fillGradient(Brand, C.electric, C.royal, 135)
+label(Brand, {
+    Size = UDim2.fromScale(1, 1),
+    Text = "LP",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 15,
+    ZIndex = 23,
+})
+glow(Brand, 78, C.electric, 0.68, UDim2.new(0.5, -39, 0.5, -39))
+
+local BrandTitle = label(Header, {
+    Size = UDim2.fromOffset(180, 22),
+    Position = UDim2.fromOffset(62, 10),
+    Text = "LP10 UNIVERSAL",
+    TextColor3 = C.white,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 22,
+})
+local BrandSub = label(Header, {
+    Size = UDim2.fromOffset(210, 17),
+    Position = UDim2.fromOffset(62, 32),
+    Text = "AURORA  /  " .. SCRIPT_COUNT .. " SCRIPTS  /  " .. EXECUTOR,
+    TextColor3 = C.muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 22,
+})
+
+local Stats = label(Header, {
+    Size = UDim2.fromOffset(250, 16),
+    Position = UDim2.new(1, -390, 0, 13),
+    Text = "FPS 60    PING --ms    MEM --",
+    TextColor3 = C.green,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    ZIndex = 22,
+})
+local Clock = label(Header, {
+    Size = UDim2.fromOffset(250, 15),
+    Position = UDim2.new(1, -390, 0, 34),
+    Text = CURRENT_GAME .. "  /  " .. CURRENT_TIME,
+    TextColor3 = C.muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    TextTruncate = Enum.TextTruncate.AtEnd,
+    ZIndex = 22,
+})
+
+local function headerButton(text, x, color)
+    local item = button(Header, {
+        Size = UDim2.fromOffset(30, 30),
+        Position = UDim2.new(1, x, 0.5, -15),
+        BackgroundColor3 = Color3.fromRGB(18, 27, 54),
+        Text = text,
+        TextColor3 = color or C.text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        ZIndex = 23,
+    })
+    round(item, 9)
+    outline(item, C.line, 1)
+    wireButton(item, Color3.fromRGB(18, 27, 54))
+    return item
+end
+
+local ModeBtn = headerButton("N", -148, C.ice)
+local SettingsBtn = headerButton("S", -112)
+local MinBtn = headerButton("_", -76)
+local CloseBtn = headerButton("X", -40, C.red)
+
+local Side = frame(Inner, {
+    Size = UDim2.new(0, 174, 1, -62),
+    Position = UDim2.fromOffset(0, 62),
+    BackgroundColor3 = Color3.fromRGB(7, 11, 24),
+    ZIndex = 12,
+})
+inset(Side, 12, 12, 18, 12)
+
+local SideTitle = label(Side, {
+    Size = UDim2.new(1, 0, 0, 18),
+    Text = "LIBRARY",
+    TextColor3 = C.muted,
+    Font = Enum.Font.GothamBold,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 13,
+})
+
+local Nav = new("Frame", Side, {
+    Size = UDim2.new(1, 0, 0, 278),
+    Position = UDim2.fromOffset(0, 28),
+    BackgroundTransparency = 1,
+    ZIndex = 13,
+})
+local NavLayout = new("UIListLayout", Nav, {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder})
+
+local Pages = {
+    {id = "Home", icon = "H", title = "Home"},
+    {id = "Scripts", icon = "S", title = "Scripts"},
+    {id = "Favorites", icon = "F", title = "Favorites"},
+    {id = "Pinned", icon = "P", title = "Pinned"},
+    {id = "Recent", icon = "R", title = "Recently Executed"},
+    {id = "Games", icon = "G", title = "Recent Games"},
+    {id = "Changelog", icon = "C", title = "Changelog"},
+}
+local NavButtons = {}
+local CurrentPage = Persist.page
+
+local function navButton(page, order)
+    local item = button(Nav, {
+        Name = "Nav_" .. page.id,
+        Size = UDim2.new(1, 0, 0, 34),
+        BackgroundColor3 = page.id == CurrentPage and Color3.fromRGB(26, 52, 112) or Color3.fromRGB(7, 11, 24),
+        Text = "",
+        LayoutOrder = order,
+        ZIndex = 14,
+    })
+    round(item, 10)
+    if page.id == CurrentPage then outline(item, C.electric, 1) end
+    label(item, {
+        Size = UDim2.fromOffset(24, 34),
+        Position = UDim2.fromOffset(8, 0),
+        Text = page.icon,
+        TextColor3 = page.id == CurrentPage and C.ice or C.muted,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        ZIndex = 15,
+    })
+    label(item, {
+        Size = UDim2.new(1, -40, 1, 0),
+        Position = UDim2.fromOffset(34, 0),
+        Text = page.title,
+        TextColor3 = page.id == CurrentPage and C.white or C.text,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 15,
+    })
+    NavButtons[page.id] = item
+    wireButton(item, page.id == CurrentPage and Color3.fromRGB(26, 52, 112) or Color3.fromRGB(7, 11, 24))
+    return item
+end
+for index, page in ipairs(Pages) do navButton(page, index) end
+
+local SideFooter = frame(Side, {
+    Size = UDim2.new(1, 0, 0, 82),
+    Position = UDim2.new(0, 0, 1, -82),
+    BackgroundColor3 = C.card,
+    ZIndex = 14,
+})
+round(SideFooter, 12)
+outline(SideFooter, C.line, 1)
+label(SideFooter, {
+    Size = UDim2.new(1, -18, 0, 18),
+    Position = UDim2.fromOffset(9, 10),
+    Text = "CURRENT EXPERIENCE",
+    TextColor3 = C.muted,
+    Font = Enum.Font.GothamBold,
+    TextSize = 8,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 15,
+})
+local GameLabel = label(SideFooter, {
+    Size = UDim2.new(1, -18, 0, 34),
+    Position = UDim2.fromOffset(9, 29),
+    Text = CURRENT_GAME,
+    TextColor3 = C.white,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 10,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 15,
+})
+
+local Content = frame(Inner, {
+    Size = UDim2.new(1, -174, 1, -62),
+    Position = UDim2.fromOffset(174, 62),
+    BackgroundTransparency = 1,
+    ZIndex = 13,
+})
+local ContentTop = frame(Content, {
+    Size = UDim2.new(1, -32, 0, 70),
+    Position = UDim2.fromOffset(16, 12),
+    BackgroundTransparency = 1,
+    ZIndex = 14,
+})
+local PageTitle = label(ContentTop, {
+    Size = UDim2.new(0.6, 0, 0, 32),
+    Text = "Welcome back",
+    TextColor3 = C.white,
+    Font = Enum.Font.GothamBold,
+    TextSize = 24,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 15,
+})
+local PageSub = label(ContentTop, {
+    Size = UDim2.new(0.65, 0, 0, 22),
+    Position = UDim2.fromOffset(0, 37),
+    Text = "Your scripts, ready when you are.",
+    TextColor3 = C.text,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 15,
+})
+
+local SearchWrap = frame(Content, {
+    Size = UDim2.new(1, -32, 0, 42),
+    Position = UDim2.fromOffset(16, 82),
+    BackgroundColor3 = C.card,
+    ZIndex = 15,
+})
+round(SearchWrap, 13)
+outline(SearchWrap, C.line, 1)
+label(SearchWrap, {
+    Size = UDim2.fromOffset(32, 42),
+    Text = "?",
+    TextColor3 = C.ice,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    ZIndex = 16,
+})
+local SearchBox = new("TextBox", SearchWrap, {
+    Size = UDim2.new(1, -60, 1, 0),
+    Position = UDim2.fromOffset(32, 0),
+    BackgroundTransparency = 1,
+    ClearTextOnFocus = false,
+    PlaceholderText = "Search scripts, pages, or actions...",
+    PlaceholderColor3 = C.muted,
+    TextColor3 = C.white,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 16,
+})
+local SearchClear = button(SearchWrap, {
+    Size = UDim2.fromOffset(24, 24),
+    Position = UDim2.new(1, -32, 0.5, -12),
+    BackgroundColor3 = C.line,
+    Text = "X",
+    TextColor3 = C.text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 9,
+    Visible = false,
+    ZIndex = 17,
+})
+round(SearchClear, 8)
+
+local Body = new("ScrollingFrame", Content, {
+    Size = UDim2.new(1, -32, 1, -138),
+    Position = UDim2.fromOffset(16, 136),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = C.royal,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ElasticBehavior = Enum.ElasticBehavior.Always,
+    ZIndex = 14,
+})
+inset(Body, 1, 8, 2, 18)
+
+local BodyList = new("UIListLayout", Body, {
+    Padding = UDim.new(0, 12),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+})
+
+local function wipeBody()
+    for _, child in ipairs(Body:GetChildren()) do
+        if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then child:Destroy() end
+    end
+end
+
+local function actionCard(parent, title, desc, action, accent)
+    local item = button(parent, {
+        Size = UDim2.new(1, 0, 0, 58),
+        BackgroundColor3 = C.card,
+        Text = "",
+        ZIndex = 16,
+    })
+    round(item, 13)
+    outline(item, C.line, 1)
+    frame(item, {
+        Size = UDim2.fromOffset(3, 34),
+        Position = UDim2.fromOffset(10, 12),
+        BackgroundColor3 = accent or C.electric,
+        ZIndex = 17,
+    })
+    label(item, {
+        Size = UDim2.new(1, -46, 0, 20),
+        Position = UDim2.fromOffset(25, 9),
+        Text = title,
+        TextColor3 = C.white,
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 17,
+    })
+    label(item, {
+        Size = UDim2.new(1, -46, 0, 17),
+        Position = UDim2.fromOffset(25, 30),
+        Text = desc,
+        TextColor3 = C.muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 17,
+    })
+    label(item, {
+        Size = UDim2.fromOffset(20, 58),
+        Position = UDim2.new(1, -28, 0, 0),
+        Text = ">",
+        TextColor3 = C.ice,
+        Font = Enum.Font.GothamBold,
+        TextSize = 15,
+        ZIndex = 17,
+    })
+    wireButton(item, C.card)
+    item.MouseButton1Click:Connect(function() play("tap"); if action then action() end end)
+    return item
+end
+
+local function sectionTitle(parent, text, order)
+    return label(parent, {
+        Size = UDim2.new(1, 0, 0, 20),
+        Text = text,
+        TextColor3 = C.ice,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = order,
+        ZIndex = 16,
+    })
+end
+
+local function scriptIndex(data)
+    for index, item in ipairs(Scripts) do if item == data or item.N == data.N then return index end end
+    return nil
+end
+
+local function has(list, name)
+    for _, item in ipairs(list) do if item == name then return true end end
+    return false
+end
+
+local function flip(list, name)
+    for index, item in ipairs(list) do
+        if item == name then table.remove(list, index); return false end
+    end
+    table.insert(list, name)
+    return true
+end
+
+local function remember(list, name, limit)
+    for index = #list, 1, -1 do if list[index] == name then table.remove(list, index) end end
+    table.insert(list, 1, name)
+    while #list > (limit or 12) do table.remove(list) end
+end
+
+local function scriptIcon(data)
+    if data.New then return "*" end
+    if data.Cat == "Combat" then return "A" end
+    if data.Cat == "Movement" then return "M" end
+    if data.Cat == "Teleport" then return "T" end
+    if data.Cat == "Utility" then return "U" end
+    if data.Cat == "Visual" then return "V" end
+    return "L"
+end
+
+local Detail, DetailTitle, DetailDesc, DetailMeta, DetailFav, DetailPin, DetailExecute
+local CurrentScript
+
+local function closeDetail()
+    if Detail then tween(Detail, 0.28, {Position = UDim2.new(1, 20, 0, 0)}, nil, Enum.EasingDirection.In) end
+end
+
+local function openDetail(data)
+    CurrentScript = data
+    if not Detail then return end
+    DetailTitle.Text = data.N
+    DetailDesc.Text = data.F or "A polished LP10 Universal script. Open the experience and explore."
+    DetailMeta.Text = "VERSION 5.0   /   " .. (data.Cat or "Universal"):upper() .. "   /   DELTA + MOBILE + PC"
+    DetailFav.Text = has(Persist.favorites, data.N) and "FAVORITED" or "FAVORITE"
+    DetailPin.Text = has(Persist.pinned, data.N) and "PINNED" or "PIN"
+    Detail.Visible = true
+    spring(Detail, 0.42, {Position = UDim2.new(0, 0, 0, 0)})
+end
+
+local function executeScript(data)
+    if not data or not data.S then return end
+    play("exec")
+    remember(Persist.recent, data.N, 12)
+    remember(Persist.recentGames, CURRENT_GAME, 8)
+    log(data.N)
+    toast("Executing script", data.N, C.green)
+    task.wait(0.28)
+    closeDetail()
+    tween(Main, 0.3, {Size = UDim2.fromOffset(0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+    if Blur.Enabled then tween(Blur, 0.3, {Size = 0}) end
+    task.wait(0.34)
+    pcall(function()
+        if Blur then Blur.Enabled = false end
+        if GUI then GUI:Destroy() end
+    end)
+    -- Existing execution contract intentionally preserved.
+    loadstring(data.S)()
+end
+
+local function card(parent, data, order)
+    local item = button(parent, {
+        Name = "Script_" .. tostring(scriptIndex(data) or order),
+        Size = UDim2.new(1, 0, 0, 78),
+        BackgroundColor3 = C.card,
+        Text = "",
+        LayoutOrder = order,
+        ZIndex = 16,
+    })
+    round(item, 15)
+    outline(item, data.New and C.red or C.line, data.New and 1.3 or 1)
+    local icon = frame(item, {
+        Size = UDim2.fromOffset(48, 48),
+        Position = UDim2.fromOffset(14, 15),
+        BackgroundColor3 = data.New and Color3.fromRGB(58, 23, 46) or Color3.fromRGB(18, 32, 68),
+        ZIndex = 17,
+    })
+    round(icon, 14)
+    fillGradient(icon, data.New and C.red or C.electric, C.royal, 135)
+    label(icon, {
+        Size = UDim2.fromScale(1, 1),
+        Text = scriptIcon(data),
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 17,
+        ZIndex = 18,
+    })
+    label(item, {
+        Size = UDim2.new(1, -170, 0, 22),
+        Position = UDim2.fromOffset(76, 14),
+        Text = data.N,
+        TextColor3 = C.white,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 17,
+    })
+    label(item, {
+        Size = UDim2.new(1, -170, 0, 18),
+        Position = UDim2.fromOffset(76, 39),
+        Text = (data.Cat or "Universal"):upper() .. "   /   " .. (has(Persist.recent, data.N) and "RECENT" or "READY"),
+        TextColor3 = data.New and C.red or C.muted,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 17,
+    })
+    if data.New then
+        local badge = label(item, {
+            Size = UDim2.fromOffset(36, 18),
+            Position = UDim2.new(1, -96, 0.5, -9),
+            Text = "NEW",
+            TextColor3 = C.red,
+            Font = Enum.Font.GothamBold,
+            TextSize = 8,
+            ZIndex = 17,
+        })
+        outline(badge, C.red, 1)
+        round(badge, 7)
+    end
+    label(item, {
+        Size = UDim2.fromOffset(20, 78),
+        Position = UDim2.new(1, -28, 0, 0),
+        Text = ">",
+        TextColor3 = C.ice,
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        ZIndex = 17,
+    })
+    wireButton(item, C.card)
+    item.MouseButton1Click:Connect(function() play("tap"); openDetail(data) end)
+    return item
+end
+
+local function listForPage(page)
+    local result = {}
+    if page == "Favorites" then
+        for _, name in ipairs(Persist.favorites) do
+            for _, data in ipairs(Scripts) do if data.N == name then table.insert(result, data) end end
+        end
+    elseif page == "Pinned" then
+        for _, name in ipairs(Persist.pinned) do
+            for _, data in ipairs(Scripts) do if data.N == name then table.insert(result, data) end end
+        end
+    elseif page == "Recent" then
+        for _, name in ipairs(Persist.recent) do
+            for _, data in ipairs(Scripts) do if data.N == name then table.insert(result, data) end end
+        end
+    else
+        for _, data in ipairs(Scripts) do table.insert(result, data) end
+    end
+    return result
+end
+
+local function addStat(parent, value, caption, accent, order)
+    local item = frame(parent, {
+        Size = UDim2.new(0.333, -8, 0, 74),
+        BackgroundColor3 = C.card,
+        LayoutOrder = order,
+        ZIndex = 16,
+    })
+    round(item, 14)
+    outline(item, C.line, 1)
+    label(item, {
+        Size = UDim2.new(1, -20, 0, 28),
+        Position = UDim2.fromOffset(10, 10),
+        Text = value,
+        TextColor3 = accent or C.white,
+        Font = Enum.Font.GothamBold,
+        TextSize = 20,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 17,
+    })
+    label(item, {
+        Size = UDim2.new(1, -20, 0, 16),
+        Position = UDim2.fromOffset(10, 44),
+        Text = caption,
+        TextColor3 = C.muted,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 17,
+    })
+end
+
+local function buildHome()
+    PageTitle.Text = "Welcome back"
+    PageSub.Text = "Your command center for everything LP10."
+    local hero = frame(Body, {
+        Size = UDim2.new(1, 0, 0, 132),
+        BackgroundColor3 = C.card,
+        LayoutOrder = 1,
+        ZIndex = 16,
+    })
+    round(hero, 18)
+    outline(hero, C.line, 1)
+    fillGradient(hero, Color3.fromRGB(20, 47, 105), Color3.fromRGB(14, 23, 52), 0)
+    glow(hero, 190, C.electric, 0.82, UDim2.new(1, -180, 0.5, -95))
+    label(hero, {
+        Size = UDim2.new(1, -32, 0, 18),
+        Position = UDim2.fromOffset(16, 15),
+        Text = "LP10 / AURORA",
+        TextColor3 = C.ice,
+        Font = Enum.Font.GothamBold,
+        TextSize = 9,
+        ZIndex = 17,
+    })
+    label(hero, {
+        Size = UDim2.new(1, -32, 0, 32),
+        Position = UDim2.fromOffset(16, 34),
+        Text = "Ready for your next\nexperience.",
+        TextColor3 = C.white,
+        Font = Enum.Font.GothamBold,
+        TextSize = 20,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 17,
+    })
+    label(hero, {
+        Size = UDim2.new(0.65, 0, 0, 18),
+        Position = UDim2.fromOffset(16, 100),
+        Text = SCRIPT_COUNT .. " scripts synced  /  " .. EXECUTOR .. " online",
+        TextColor3 = C.text,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        ZIndex = 17,
+    })
+    local heroButton = button(hero, {
+        Size = UDim2.fromOffset(126, 36),
+        Position = UDim2.new(1, -144, 0.5, -18),
+        BackgroundColor3 = C.electric,
+        Text = "BROWSE SCRIPTS",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 9,
+        ZIndex = 18,
+    })
+    round(heroButton, 10)
+    wireButton(heroButton, C.electric, C.royal)
+    heroButton.MouseButton1Click:Connect(function() changePage("Scripts") end)
+
+    local statsRow = frame(Body, {
+        Size = UDim2.new(1, 0, 0, 74),
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 16,
+    })
+    local statsLayout = new("UIListLayout", statsRow, {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12)})
+    addStat(statsRow, tostring(SCRIPT_COUNT), "AVAILABLE SCRIPTS", C.ice, 1)
+    addStat(statsRow, tostring(#Persist.favorites), "FAVORITES", C.yellow, 2)
+    addStat(statsRow, tostring(#Persist.recent), "RECENT RUNS", C.green, 3)
+
+    sectionTitle(Body, "QUICK ACTIONS", 3)
+    local quick = frame(Body, {
+        Size = UDim2.new(1, 0, 0, 316),
+        BackgroundTransparency = 1,
+        LayoutOrder = 4,
+        ZIndex = 16,
+    })
+    local quickLayout = new("UIGridLayout", quick, {
+        CellSize = UDim2.new(0.5, -6, 0, 56),
+        CellPadding = UDim2.fromOffset(12, 10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    })
+    actionCard(quick, "Browse all scripts", "Explore the full library", function() CurrentPage = "Scripts"; Persist.page = "Scripts"; refresh() end, C.electric).LayoutOrder = 1
+    actionCard(quick, "Execute last script", "Return to your last run", function()
+        if Persist.recent[1] then for _, data in ipairs(Scripts) do if data.N == Persist.recent[1] then executeScript(data) end end else toast("Nothing recent", "Execute a script first.", C.yellow) end
+    end, C.green).LayoutOrder = 2
+    actionCard(quick, "Random script", "Let LP10 choose for you", function()
+        local data = Scripts[math.random(1, #Scripts)]
+        openDetail(data)
+    end, C.violet).LayoutOrder = 3
+    actionCard(quick, "Settings", "Tune the experience", function() CurrentPage = "Settings"; Persist.page = "Settings"; refresh() end, C.yellow).LayoutOrder = 4
+    actionCard(quick, "Refresh scripts", "Rebuild the library view", function() refresh(); toast("Library refreshed", SCRIPT_COUNT .. " scripts are ready.", C.electric) end, C.electric).LayoutOrder = 5
+    actionCard(quick, "Scroll to top", "Jump to the beginning", function() Body.CanvasPosition = Vector2.new(0, 0) end, C.ice).LayoutOrder = 6
+    actionCard(quick, "Scroll to bottom", "Jump to the latest item", function() Body.CanvasPosition = Vector2.new(0, Body.AbsoluteCanvasSize.Y) end, C.ice).LayoutOrder = 7
+    actionCard(quick, "Quick search", "Focus the library search", function() SearchBox:CaptureFocus() end, C.green).LayoutOrder = 8
+    actionCard(quick, "Favorites", "Open your saved scripts", function() changePage("Favorites") end, C.yellow).LayoutOrder = 9
+    actionCard(quick, "Pinned", "Open your pinned scripts", function() changePage("Pinned") end, C.yellow).LayoutOrder = 10
+    actionCard(quick, "Recent", "Open recently executed", function() changePage("Recent") end, C.green).LayoutOrder = 11
+    actionCard(quick, "Copy Discord", "Copy the LP10 community link", function() toast("Discord link unavailable", "Add your invite URL to enable this action.", C.yellow) end, C.violet).LayoutOrder = 12
+    actionCard(quick, "Copy website", "Copy the LP10 home link", function() setClipboard("https://github.com/LPOLVO/LP10"); toast("Copied", "Website link is on your clipboard.", C.green) end, C.electric).LayoutOrder = 13
+
+    sectionTitle(Body, "RECENTLY OPENED", 5)
+    if #Persist.recent == 0 then
+        label(Body, {Size = UDim2.new(1, 0, 0, 44), Text = "Your recent scripts will appear here.", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 6, ZIndex = 16})
+    else
+        local first = listForPage("Recent")
+        for index = 1, math.min(3, #first) do card(Body, first[index], 5 + index) end
+    end
+end
+
+local function buildLibrary(page)
+    local names = {Scripts = "Script library", Favorites = "Favorites", Pinned = "Pinned scripts", Recent = "Recently executed"}
+    PageTitle.Text = names[page] or "Script library"
+    PageSub.Text = page == "Scripts" and "Pick a script to inspect it before execution." or "Your curated LP10 collection."
+    local list = listForPage(page)
+    local query = string.lower(SearchBox.Text or "")
+    local visible = 0
+    for _, data in ipairs(list) do
+        if query == "" or string.find(string.lower(data.N), query, 1, true) then
+            visible = visible + 1
+            card(Body, data, visible)
+        end
+    end
+    if visible == 0 then
+        label(Body, {
+            Size = UDim2.new(1, 0, 0, 100),
+            Text = query ~= "" and ("No matches for \"" .. SearchBox.Text .. "\"") or "Nothing here yet.\nOpen a script to start building this collection.",
+            TextColor3 = C.muted,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 13,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            LayoutOrder = 1,
+            ZIndex = 16,
+        })
+    end
+end
+
+local function buildGames()
+    PageTitle.Text = "Recent games"
+    PageSub.Text = "Experiences you have recently used with LP10."
+    if #Persist.recentGames == 0 then
+        label(Body, {Size = UDim2.new(1, 0, 0, 100), Text = "No recent experiences yet.\nYour game activity will appear here.", TextColor3 = C.muted, Font = Enum.Font.GothamSemibold, TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center, LayoutOrder = 1, ZIndex = 16})
+        return
+    end
+    for index, name in ipairs(Persist.recentGames) do
+        actionCard(Body, name, index == 1 and "CURRENT EXPERIENCE" or "RECENT EXPERIENCE", nil, index == 1 and C.green or C.electric).LayoutOrder = index
+    end
+end
+
+local function buildChangelog()
+    PageTitle.Text = "Changelog"
+    PageSub.Text = "The latest from LP10 Universal."
+    local entries = {
+        {"AURORA SHELL", "A complete application-style interface with responsive layouts, navigation, and premium motion.", "CURRENT"},
+        {"DETAIL FIRST", "Scripts now open in a dedicated detail view before they execute.", "NEW"},
+        {"PERFORMANCE", "Adaptive effects, reduce-motion support, and live performance telemetry.", "IMPROVED"},
+        {"WINDOW CONTROL", "Resizable, draggable, compact, mini, and PC fullscreen modes.", "NEW"},
+    }
+    for index, entry in ipairs(entries) do
+        local item = actionCard(Body, entry[1], entry[2], nil, index == 1 and C.electric or C.violet)
+        item.Size = UDim2.new(1, 0, 0, 72)
+        item.LayoutOrder = index
+        label(item, {Size = UDim2.fromOffset(58, 18), Position = UDim2.new(1, -70, 0, 10), Text = entry[3], TextColor3 = C.ice, Font = Enum.Font.GothamBold, TextSize = 8, ZIndex = 18})
+    end
+end
+
+local function makeToggle(parent, title, desc, key, order)
+    local row = frame(parent, {Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = C.card, LayoutOrder = order, ZIndex = 16})
+    round(row, 13)
+    outline(row, C.line, 1)
+    label(row, {Size = UDim2.new(1, -82, 0, 19), Position = UDim2.fromOffset(14, 9), Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 17})
+    label(row, {Size = UDim2.new(1, -82, 0, 16), Position = UDim2.fromOffset(14, 31), Text = desc, TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 17})
+    local track = frame(row, {Size = UDim2.fromOffset(44, 24), Position = UDim2.new(1, -58, 0.5, -12), BackgroundColor3 = Settings[key] and C.royal or C.line, ZIndex = 17})
+    round(track, 12)
+    local knob = frame(track, {Size = UDim2.fromOffset(18, 18), Position = Settings[key] and UDim2.new(1, -21, 0.5, -9) or UDim2.fromOffset(3, 3), BackgroundColor3 = C.white, ZIndex = 18})
+    round(knob, 9)
+    local hit = button(row, {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 19})
+    hit.MouseButton1Click:Connect(function()
+        play("tap")
+        Settings[key] = not Settings[key]
+        tween(track, 0.2, {BackgroundColor3 = Settings[key] and C.royal or C.line})
+        spring(knob, 0.25, {Position = Settings[key] and UDim2.new(1, -21, 0.5, -9) or UDim2.fromOffset(3, 3)})
+        if key == "performance" or key == "reduceMotion" then Settings.particles = not Settings.performance and not Settings.reduceMotion end
+    end)
+end
+
+local function buildSettings()
+    PageTitle.Text = "Settings"
+    PageSub.Text = "Make Aurora feel exactly right on your device."
+    sectionTitle(Body, "APPEARANCE & MOTION", 1)
+    makeToggle(Body, "Reduce motion", "Replace complex movement with quick fades.", "reduceMotion", 2)
+    makeToggle(Body, "Glow effects", "Keep the electric blue atmosphere alive.", "glow", 3)
+    makeToggle(Body, "Background blur", "Soften the game behind the hub.", "blur", 4)
+    makeToggle(Body, "Ambient particles", "Subtle motion in the background.", "particles", 5)
+    makeToggle(Body, "Performance mode", "Reduce expensive effects automatically.", "performance", 6)
+    makeToggle(Body, "UI sounds", "Feedback for navigation and actions.", "sounds", 7)
+    sectionTitle(Body, "WINDOW", 7)
+    actionCard(Body, "Cycle window mode", "Normal, compact, mini, fullscreen", function() cycleMode() end, C.electric).LayoutOrder = 9
+    actionCard(Body, "Reset interface position", "Center the window on screen", function() Main.Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2); toast("Window centered", "Your workspace is back in focus.", C.electric) end, C.violet).LayoutOrder = 10
+end
+
+local function buildAbout()
+    PageTitle.Text = "About LP10"
+    PageSub.Text = "Personal script hub, rebuilt as a real application."
+    local about = frame(Body, {Size = UDim2.new(1, 0, 0, 190), BackgroundColor3 = C.card, LayoutOrder = 1, ZIndex = 16})
+    round(about, 18)
+    outline(about, C.line, 1)
+    fillGradient(about, Color3.fromRGB(19, 40, 88), C.card, 135)
+    label(about, {Size = UDim2.new(1, -30, 0, 30), Position = UDim2.fromOffset(15, 18), Text = "LP10 UNIVERSAL", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 17})
+    label(about, {Size = UDim2.new(1, -30, 0, 68), Position = UDim2.fromOffset(15, 55), Text = "A focused, lightweight launcher for the LP10 collection. Built for Delta, mobile, and PC with a responsive interface that stays out of your way.", TextColor3 = C.text, Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 17})
+    label(about, {Size = UDim2.new(1, -30, 0, 30), Position = UDim2.fromOffset(15, 143), Text = "AURORA EDITION   /   " .. SCRIPT_COUNT .. " SCRIPTS   /   " .. EXECUTOR, TextColor3 = C.ice, Font = Enum.Font.GothamBold, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 17})
+    actionCard(Body, "Copy Discord", "Copy the LP10 community link", function() toast("Discord link unavailable", "Add your invite URL to enable this action.", C.yellow) end, C.violet).LayoutOrder = 2
+    actionCard(Body, "Copy website", "Copy the LP10 home link", function() setClipboard("https://github.com/LPOLVO/LP10"); toast("Copied", "Website link is on your clipboard.", C.green) end, C.electric).LayoutOrder = 3
+end
+
+refresh = function()
+    wipeBody()
+    if CurrentPage == "Home" then buildHome()
+    elseif CurrentPage == "Games" then buildGames()
+    elseif CurrentPage == "Changelog" then buildChangelog()
+    elseif CurrentPage == "Settings" then buildSettings()
+    elseif CurrentPage == "About" then buildAbout()
+    else buildLibrary(CurrentPage) end
+    for id, item in pairs(NavButtons) do
+        local active = id == CurrentPage
+        item.BackgroundColor3 = active and Color3.fromRGB(26, 52, 112) or Color3.fromRGB(7, 11, 24)
+        for _, child in ipairs(item:GetChildren()) do
+            if child:IsA("TextLabel") then child.TextColor3 = active and (child.Position.X.Offset < 30 and C.ice or C.white) or (child.Position.X.Offset < 30 and C.muted or C.text) end
+        end
+    end
+end
+
+changePage = function(id)
+    CurrentPage = id
+    Persist.page = id
+    SearchBox.Text = ""
+    SearchClear.Visible = false
+    Body.CanvasPosition = Vector2.new(0, 0)
+    play("slide")
+    refresh()
+end
+
+for _, page in ipairs(Pages) do
+    NavButtons[page.id].MouseButton1Click:Connect(function() changePage(page.id) end)
+end
+
+local AboutNav = button(Side, {Size = UDim2.new(1, 0, 0, 34), Position = UDim2.new(0, 0, 1, -128), BackgroundColor3 = Color3.fromRGB(7, 11, 24), Text = "  I    About LP10", TextColor3 = C.text, Font = Enum.Font.GothamSemibold, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 15})
+round(AboutNav, 10)
+wireButton(AboutNav, Color3.fromRGB(7, 11, 24))
+AboutNav.MouseButton1Click:Connect(function() changePage("About") end)
+
+Detail = frame(Inner, {
+    Size = UDim2.new(1, 0, 1, -62),
+    Position = UDim2.new(1, 20, 0, 62),
+    BackgroundColor3 = C.panel,
+    Visible = false,
+    ZIndex = 60,
+})
+fillGradient(Detail, Color3.fromRGB(17, 27, 61), C.surface, 135)
+local DetailTop = frame(Detail, {Size = UDim2.new(1, 0, 0, 126), BackgroundTransparency = 1, ZIndex = 61})
+local DetailBack = button(DetailTop, {Size = UDim2.fromOffset(34, 34), Position = UDim2.fromOffset(16, 16), BackgroundColor3 = C.card, Text = "<", TextColor3 = C.ice, Font = Enum.Font.GothamBold, TextSize = 17, ZIndex = 62})
+round(DetailBack, 10)
+wireButton(DetailBack, C.card)
+DetailBack.MouseButton1Click:Connect(closeDetail)
+local DetailIcon = frame(DetailTop, {Size = UDim2.fromOffset(58, 58), Position = UDim2.fromOffset(60, 16), BackgroundColor3 = C.royal, ZIndex = 62})
+round(DetailIcon, 16)
+fillGradient(DetailIcon, C.electric, C.royal, 135)
+label(DetailIcon, {Size = UDim2.fromScale(1, 1), Text = "LP", TextColor3 = Color3.new(1, 1, 1), Font = Enum.Font.GothamBold, TextSize = 17, ZIndex = 63})
+DetailTitle = label(DetailTop, {Size = UDim2.new(1, -140, 0, 42), Position = UDim2.fromOffset(132, 21), Text = "", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 16, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 62})
+DetailMeta = label(DetailTop, {Size = UDim2.new(1, -148, 0, 16), Position = UDim2.fromOffset(132, 69), Text = "", TextColor3 = C.ice, Font = Enum.Font.GothamSemibold, TextSize = 8, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 62})
+local DetailDivider = frame(Detail, {Size = UDim2.new(1, -32, 0, 1), Position = UDim2.fromOffset(16, 126), BackgroundColor3 = C.line, ZIndex = 61})
+label(Detail, {Size = UDim2.new(1, -32, 0, 18), Position = UDim2.fromOffset(16, 143), Text = "ABOUT THIS SCRIPT", TextColor3 = C.ice, Font = Enum.Font.GothamBold, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 61})
+DetailDesc = label(Detail, {Size = UDim2.new(1, -32, 0, 82), Position = UDim2.fromOffset(16, 168), Text = "", TextColor3 = C.text, Font = Enum.Font.Gotham, TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 61})
+DetailFav = button(Detail, {Size = UDim2.new(0.5, -22, 0, 38), Position = UDim2.fromOffset(16, 264), BackgroundColor3 = C.card, Text = "FAVORITE", TextColor3 = C.yellow, Font = Enum.Font.GothamBold, TextSize = 9, ZIndex = 61})
+round(DetailFav, 11)
+outline(DetailFav, C.line, 1)
+DetailPin = button(Detail, {Size = UDim2.new(0.5, -22, 0, 38), Position = UDim2.new(0.5, 6, 0, 264), BackgroundColor3 = C.card, Text = "PIN", TextColor3 = C.ice, Font = Enum.Font.GothamBold, TextSize = 9, ZIndex = 61})
+round(DetailPin, 11)
+outline(DetailPin, C.line, 1)
+DetailFav.MouseButton1Click:Connect(function()
+    if CurrentScript then local on = flip(Persist.favorites, CurrentScript.N); DetailFav.Text = on and "FAVORITED" or "FAVORITE"; toast(on and "Added to favorites" or "Removed from favorites", CurrentScript.N, C.yellow); refresh() end
+end)
+DetailPin.MouseButton1Click:Connect(function()
+    if CurrentScript then local on = flip(Persist.pinned, CurrentScript.N); DetailPin.Text = on and "PINNED" or "PIN"; toast(on and "Pinned script" or "Unpinned script", CurrentScript.N, C.ice); refresh() end
+end)
+DetailExecute = button(Detail, {Size = UDim2.new(1, -32, 0, 48), Position = UDim2.new(0, 16, 1, -66), BackgroundColor3 = C.electric, Text = "EXECUTE SCRIPT", TextColor3 = Color3.new(1, 1, 1), Font = Enum.Font.GothamBold, TextSize = 12, ZIndex = 61})
+round(DetailExecute, 14)
+fillGradient(DetailExecute, C.electric, C.royal, 0)
+wireButton(DetailExecute, C.electric, C.royal)
+DetailExecute.MouseButton1Click:Connect(function() executeScript(CurrentScript) end)
+
+local ResizeHandle = button(Main, {
+    Size = UDim2.fromOffset(34, 34),
+    Position = UDim2.new(1, -34, 1, -34),
+    BackgroundTransparency = 1,
+    Text = "//",
+    TextColor3 = C.ice,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    ZIndex = 40,
+})
+
+local RestoreOrb = button(GUI, {
+    Size = UDim2.fromOffset(58, 58),
+    Position = UDim2.new(0, 18, 0.5, -29),
+    BackgroundColor3 = C.royal,
+    Text = "LP",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 17,
+    Visible = false,
+    ZIndex = 80,
+})
+round(RestoreOrb, 29)
+outline(RestoreOrb, C.ice, 1.5)
+fillGradient(RestoreOrb, C.electric, C.royal, 135)
+wireButton(RestoreOrb, C.royal, C.electric)
+glow(RestoreOrb, 120, C.electric, 0.72, UDim2.new(0.5, -60, 0.5, -60))
+RestoreOrb.MouseButton1Click:Connect(function()
+    RestoreOrb.Visible = false
+    Main.Visible = true
+    Main.Size = UDim2.fromOffset(0, 0)
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    if Settings.blur then Blur.Enabled = true; tween(Blur, 0.35, {Size = 12}) end
+    spring(Main, 0.42, {Size = UDim2.fromOffset(WIN_W, WIN_H), Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2)})
+end)
+
+local function applySize(width, height, animate)
+    WIN_W, WIN_H = math.clamp(math.floor(width), MIN_W, MAX_W), math.clamp(math.floor(height), MIN_H, MAX_H)
+    local value = UDim2.fromOffset(WIN_W, WIN_H)
+    if animate then tween(Main, 0.25, {Size = value, Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2)}) else Main.Size = value end
+    local narrow = WIN_W < 640
+    Side.Visible = not narrow
+    Content.Position = narrow and UDim2.fromOffset(0, 62) or UDim2.fromOffset(174, 62)
+    Content.Size = narrow and UDim2.new(1, 0, 1, -62) or UDim2.new(1, -174, 1, -62)
+    BrandTitle.Visible = not narrow
+    BrandSub.Visible = not narrow
+    Stats.Visible = WIN_W > 500
+    Clock.Visible = WIN_W > 500
+    ResizeHandle.Visible = WIN_W >= 520
+end
+
+local resizeActive, resizeStart, resizeBase = false, nil, nil
+ResizeHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        resizeActive = true
+        resizeStart = input.Position
+        resizeBase = Vector2.new(WIN_W, WIN_H)
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if resizeActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - resizeStart
+        applySize(resizeBase.X + delta.X, resizeBase.Y + delta.Y, false)
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then resizeActive = false end
+end)
+
+local dragActive, dragStart, dragBase = false, nil, nil
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragActive, dragStart, dragBase = true, input.Position, Main.Position
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if dragActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(dragBase.X.Scale, dragBase.X.Offset + delta.X, dragBase.Y.Scale, dragBase.Y.Offset + delta.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragActive = false end
+end)
+
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    local viewport = Camera.ViewportSize
+    if viewport.X < MIN_W + 30 or viewport.Y < MIN_H + 30 then
+        applySize(math.max(MIN_W, viewport.X - 18), math.max(MIN_H, viewport.Y - 46), false)
+    elseif UIS.TouchEnabled and viewport.X < 760 then
+        applySize(math.min(WIN_W, viewport.X - 18), math.min(WIN_H, viewport.Y - 46), false)
+    end
+end)
+
+cycleMode = function()
+    local order = {"Normal", "Compact", "Mini", "Fullscreen"}
+    local current = 1
+    for index, mode in ipairs(order) do if mode == Persist.mode then current = index end end
+    local nextMode = order[current % #order + 1]
+    if nextMode == "Fullscreen" and UIS.TouchEnabled then nextMode = "Normal" end
+    Persist.mode = nextMode
+    ModeBtn.Text = string.sub(nextMode, 1, 1)
+    if nextMode == "Normal" then applySize(920, 640, true)
+    elseif nextMode == "Compact" then applySize(760, 540, true)
+    elseif nextMode == "Mini" then applySize(420, 430, true)
+    else applySize(Camera.ViewportSize.X - 24, Camera.ViewportSize.Y - 24, true) end
+    toast("Window mode", nextMode .. " mode active.", C.electric)
+end
+
+ModeBtn.MouseButton1Click:Connect(cycleMode)
+SettingsBtn.MouseButton1Click:Connect(function() changePage("Settings") end)
+MinBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    RestoreOrb.Visible = true
+    toast("LP10 minimized", "Use the floating orb to restore the hub.", C.electric)
+end)
+CloseBtn.MouseButton1Click:Connect(function()
+    pcall(function() if Blur then Blur:Destroy() end; if GUI then GUI:Destroy() end end)
+end)
+
+SearchBox.Focused:Connect(function() tween(SearchWrap, 0.18, {BackgroundColor3 = C.cardHot}) end)
+SearchBox.FocusLost:Connect(function() tween(SearchWrap, 0.18, {BackgroundColor3 = C.card}) end)
+SearchClear.MouseButton1Click:Connect(function() SearchBox.Text = ""; SearchClear.Visible = false; refresh() end)
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    SearchClear.Visible = SearchBox.Text ~= ""
+    if CurrentPage == "Scripts" or CurrentPage == "Favorites" or CurrentPage == "Pinned" or CurrentPage == "Recent" then refresh() end
+end)
+
+local fps, frames, elapsed, ping = 60, 0, 0, 0
+RunService.Heartbeat:Connect(function(dt)
+    frames = frames + 1
+    elapsed = elapsed + dt
+    if elapsed >= (Settings.performance and 1 or 0.5) then
+        fps = math.floor(frames / elapsed)
+        frames, elapsed = 0, 0
+        pcall(function() ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() end)
+        local memory = 0
+        pcall(function() memory = math.floor(game:GetService("Stats"):GetMemoryUsageMbForTag(Enum.DeveloperMemoryTag.Gui)) end)
+        Stats.Text = "FPS " .. fps .. "    PING " .. math.floor(ping) .. "ms    MEM " .. memory .. "MB"
+        Stats.TextColor3 = fps >= 55 and C.green or (fps >= 30 and C.yellow or C.red)
+        Clock.Text = CURRENT_GAME .. "  /  " .. os.date("%H:%M:%S")
+        if fps < 30 then Settings.particles = false end
+    end
+end)
+
+local function openMain()
+    applySize(WIN_W, WIN_H, false)
+    Main.Visible = true
+    Main.Size = UDim2.fromOffset(0, 0)
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    if Settings.blur then Blur.Enabled = true; tween(Blur, 0.4, {Size = 12}) end
+    play("open")
+    spring(Main, 0.5, {Size = UDim2.fromOffset(WIN_W, WIN_H), Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2)})
+end
+
+applySize(WIN_W, WIN_H, false)
+ModeBtn.Text = string.sub(Persist.mode, 1, 1)
+refresh()
+openMain()
+task.delay(0.65, function() toast("LP10 Universal", SCRIPT_COUNT .. " scripts ready. Welcome to Aurora.", C.electric) end)
