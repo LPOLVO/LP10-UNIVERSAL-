@@ -283,8 +283,8 @@ log("Just opened hub")
 -- SCRIPTS  (ALL PRESERVED — DO NOT REMOVE)
 -- ════════════════════════════════════════════════════════════
 local Scripts = {
-    {N="Greedy Growers", New=true, Cat="Universal",
-     F="Greedy Growers — Auto Farm, Auto Sell, Auto Plant, and more. Fully obfuscated & Delta compatible. Mobile & PC friendly.",
+{N="GreedyGrowers", New=true, Cat="Universal",
+     F="Greedy Growers — auto farm, auto buy, clean UI integration. Delta & Mobile Compatible.",
      S=[[
         local success, err = pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Greedy%20Growers%20OB"))()
