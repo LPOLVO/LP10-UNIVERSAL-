@@ -3321,12 +3321,12 @@ end
 ModeBtn.MouseButton1Click:Connect(cycleMode)
 SettingsBtn.MouseButton1Click:Connect(function() changePage("Settings") end)
 MinBtn.MouseButton1Click:Connect(function()
-    if Blur then
-        Blur.Enabled = false
-        Blur.Size = 0
-    end
     Main.Visible = false
     RestoreOrb.Visible = true
+    if Blur then
+        Blur.Size = 0
+        Blur.Enabled = false
+    end
     toast("LP10 minimized", "Use the floating orb to restore the hub.", C.electric)
 end)
 CloseBtn.MouseButton1Click:Connect(function()
