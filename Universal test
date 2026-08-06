@@ -3321,6 +3321,10 @@ end
 ModeBtn.MouseButton1Click:Connect(cycleMode)
 SettingsBtn.MouseButton1Click:Connect(function() changePage("Settings") end)
 MinBtn.MouseButton1Click:Connect(function()
+    if Blur then
+        Blur.Enabled = false
+        Blur.Size = 0
+    end
     Main.Visible = false
     RestoreOrb.Visible = true
     toast("LP10 minimized", "Use the floating orb to restore the hub.", C.electric)
@@ -3452,6 +3456,24 @@ local function openMain()
         tween(LaunchFill, 0.72, {Size = UDim2.fromScale(0.72, 1)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         task.wait(0.7)
         LaunchStatus.Text = "LOADING " .. SCRIPT_COUNT .. " SCRIPTS"
+        tween(LaunchFill, 0.52, {Size = UDim2.fromScale(1, 1)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        task.wait(0.58)
+        LaunchStatus.Text = "AURORA ONLINE"
+        task.wait(0.32)
+        tween(LaunchCore, 0.22, {BackgroundTransparency = 1})
+        tween(LaunchGlow, 0.28, {ImageTransparency = 1})
+        tween(LaunchCurtain, 0.34, {BackgroundTransparency = 1})
+        task.wait(0.36)
+        if LaunchCurtain and LaunchCurtain.Parent then LaunchCurtain.Visible = false end
+    end)
+end
+
+applySize(WIN_W, WIN_H, false)
+Persist.mode = "Fullscreen"
+ModeBtn.Text = "F"
+refresh()
+openMain()
+task.delay(0.65, function() toast("LP10 Universal", SCRIPT_COUNT .. " scripts ready. Welcome to Aurora.", C.electric) end) LaunchStatus.Text = "LOADING " .. SCRIPT_COUNT .. " SCRIPTS"
         tween(LaunchFill, 0.52, {Size = UDim2.fromScale(1, 1)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         task.wait(0.58)
         LaunchStatus.Text = "AURORA ONLINE"
