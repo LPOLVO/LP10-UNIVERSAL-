@@ -2610,36 +2610,6 @@ local function navButton(page, order)
 end
 for index, page in ipairs(Pages) do navButton(page, index) end
 
-local SideFooter = frame(Side, {
-    Size = UDim2.new(1, 0, 0, 82),
-    Position = UDim2.new(0, 0, 1, -82),
-    BackgroundColor3 = C.card,
-    ZIndex = 14,
-})
-round(SideFooter, 12)
-outline(SideFooter, C.line, 1)
-label(SideFooter, {
-    Size = UDim2.new(1, -18, 0, 18),
-    Position = UDim2.fromOffset(9, 10),
-    Text = "CURRENT EXPERIENCE",
-    TextColor3 = C.muted,
-    Font = Enum.Font.GothamBold,
-    TextSize = 8,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    ZIndex = 15,
-})
-local GameLabel = label(SideFooter, {
-    Size = UDim2.new(1, -18, 0, 34),
-    Position = UDim2.fromOffset(9, 29),
-    Text = CURRENT_GAME,
-    TextColor3 = C.white,
-    Font = Enum.Font.GothamSemibold,
-    TextSize = 10,
-    TextWrapped = true,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    ZIndex = 15,
-})
-
 local Content = frame(Inner, {
     Size = UDim2.new(1, -174, 1, -62),
     Position = UDim2.fromOffset(174, 62),
