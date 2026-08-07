@@ -441,9 +441,12 @@ local Scripts = {
     {N="Build a Boat for Treasure",            New=false, Cat="Universal",
      F="Auto build and race in Build a Boat for Treasure. Delta compatible.",
      S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20a%20boat%20for%20Treasure%20OB"))()'},
+    {N="+1 Double Jump Bike Escape",           New=true,  Cat="Universal",
+     F="Auto Train, Auto Rebirth, Collect Coin, Last Wins tracker. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/1DoubleJumpBikeEscape%20OB"))()'},
 }
 
-local SCRIPT_COUNT = #Scripts  -- 32
+local SCRIPT_COUNT = #Scripts  -- 33
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- CATEGORIES
@@ -2292,6 +2295,13 @@ local ScriptMeta = {
         tested  = "Delta 1.2, Arceus X Mobile, Fluxus",
         added   = "v4",
     },
+    ["+1 Double Jump Bike Escape"] = {
+        tags    = {"bike","doublejump","autorebirth","autocollect","farm","universal"},
+        tips    = "Enable Auto Rebirth first, then toggle Auto Train and Collect Coin. Last Wins shows your session record.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile, Codex",
+        added   = "v7",
+    },
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -3833,6 +3843,7 @@ local GAMES_DIRECTORY = {
     {name="Natural Disaster",placeId="189707",     icon="Storm",  scripts={"Natural Disaster Survival Win"}},
     {name="Brookhaven",      placeId="4924922222", icon="Town",   scripts={"Brookhaven Fly Hack","Brookhaven Troll"}},
     {name="Tower of Hell",   placeId="1962086868", icon="Tower",  scripts={"Tower of Hell Auto Win","Tower of Hell No Clip"}},
+    {name="+1 Double Jump Bike Escape", placeId="", icon="Bike",   scripts={"+1 Double Jump Bike Escape"}},
 }
 
 local function buildGamesPage()
