@@ -1093,10 +1093,14 @@ function LP10:Open()  openWindow()  end
 function LP10:Close() closeWindow() end
 
 -- 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
---  BOOT
+--  BOOT  鈥� 賮鬲丨 丕賱賭 GUI 鬲賱賯丕卅賷丕賸 毓賳丿 丕賱鬲卮睾賷賱
 -- 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-task.delay(0.5, function()
-    notify("LP10 HUB", "Purple Library v4.0 loaded. Add your tabs below.", "hub", 5)
+task.delay(0.3, function()
+    openWindow()  -- 賷賮鬲丨 丕賱賳丕賮匕丞 賲亘丕卮乇丞
+end)
+
+task.delay(0.8, function()
+    notify("LP10 HUB", "Purple Library v4.0 loaded!", "hub", 5)
 end)
 
 print("[LP10 HUB] Purple Library v4.0 鈥� Ready.")
