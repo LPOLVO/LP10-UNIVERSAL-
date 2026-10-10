@@ -1,709 +1,3146 @@
--- [[ LP10 HUB | PURPLE EDITION v4 ]]
--- COLOR: PURPLE
--- FEATURES: DRAGGABLE, RESIZABLE, TABS, TOGGLE, SLIDER, BUTTON, DROPDOWN, NOTIFY
--- BY LPOLVO
+--[[
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ LP10 UNIVERSAL — HALLOWEEN UI PREVIEW v8                                     ║
+║ 42 catalogue entries · orange ember palette · seasonal ambience              ║
+║ Search · filters · favorites · pins · session-only preferences                ║
+║ UI ONLY: no executable payloads, external script loads, or game automation   ║
+║ Run as a LocalScript in an experience you own or are authorized to edit.      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+]]
 
-local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
+-- ════════════════════════════════════════════════════════════════════════════
+-- SERVICES
+-- ════════════════════════════════════════════════════════════════════════════
+local Players       = game:GetService("Players")
+local UIS           = game:GetService("UserInputService")
+local TweenService  = game:GetService("TweenService")
+local Lighting      = game:GetService("Lighting")
+local SoundService  = game:GetService("SoundService")
+local RunService    = game:GetService("RunService")
+local StarterGui    = game:GetService("StarterGui")
+local Stats         = game:GetService("Stats")
 
--- [ COLORS ]
-local ACCENT   = Color3.fromRGB(124, 58, 237)
-local ACCENT2  = Color3.fromRGB(157, 92, 255)
-local BG       = Color3.fromRGB(7, 4, 20)
-local SURFACE  = Color3.fromRGB(16, 9, 36)
-local CARD     = Color3.fromRGB(21, 12, 46)
-local LINE     = Color3.fromRGB(60, 30, 100)
-local TEXT     = Color3.fromRGB(196, 167, 235)
-local WHITE    = Color3.fromRGB(240, 234, 255)
-local MUTED    = Color3.fromRGB(100, 70, 150)
-local GREEN    = Color3.fromRGB(34, 197, 94)
-local RED      = Color3.fromRGB(239, 68, 68)
-local GOLD     = Color3.fromRGB(245, 158, 11)
+local LP  = Players.LocalPlayer
+local Cam = workspace.CurrentCamera
 
--- [ CONFIG ]
-local HubName  = "LP10 HUB"
-local MinSize  = Vector2.new(260, 300)
-local MaxSize  = Vector2.new(580, 520)
-local W, H     = 320, 420
+-- ════════════════════════════════════════════════════════════════════════════
+-- HALLOWEEN PALETTE  —  Pumpkin Orange / Midnight
+-- ════════════════════════════════════════════════════════════════════════════
+local C = {
+    -- Core pumpkin tones
+    royal      = Color3.fromRGB(255,117,24),
+    electric   = Color3.fromRGB(255,145,40),
+    elecDark   = Color3.fromRGB(137,49,20),
+    elecLight  = Color3.fromRGB(255,188,105),
+    ice        = Color3.fromRGB(255,221,181),
+    violet     = Color3.fromRGB(189,119,255),
+    cyan       = Color3.fromRGB(255,174,93),
+    -- Backgrounds
+    bg         = Color3.fromRGB(8,5,7),
+    surface    = Color3.fromRGB(18,9,11),
+    panel      = Color3.fromRGB(24,13,15),
+    card       = Color3.fromRGB(32,17,19),
+    cardHot    = Color3.fromRGB(52,24,20),
+    sidebar    = Color3.fromRGB(13,7,9),
+    header     = Color3.fromRGB(18,9,11),
+    input      = Color3.fromRGB(22,12,14),
+    -- Lines
+    line       = Color3.fromRGB(76,36,26),
+    lineLight  = Color3.fromRGB(116,57,38),
+    -- Text
+    white      = Color3.fromRGB(255,240,222),
+    text       = Color3.fromRGB(235,201,171),
+    muted      = Color3.fromRGB(177,132,104),
+    dim        = Color3.fromRGB(103,77,64),
+    -- Status
+    green      = Color3.fromRGB(52,  224, 145),
+    greenDark  = Color3.fromRGB(18,  140, 88),
+    yellow     = Color3.fromRGB(255,194,80),
+    red        = Color3.fromRGB(220, 52, 42),
+    redDark    = Color3.fromRGB(142, 28, 20),
+    orange     = Color3.fromRGB(255, 117, 24),
+    pink       = Color3.fromRGB(198,57,135),
+}
 
--- [ SCREEN GUI ]
-local SG = Instance.new("ScreenGui")
-SG.Name = "LP10_HUB_v4"
-SG.ResetOnSpawn = false
-SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-SG.IgnoreGuiInset = true
-local ok = pcall(function() SG.Parent = CoreGui end)
-if not ok then SG.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+-- ════════════════════════════════════════════════════════════════════════════
+-- SETTINGS
+-- ════════════════════════════════════════════════════════════════════════════
+local Settings = {
+    reduceMotion = false,
+    performance  = false,
+    particles    = true,
+    glow         = true,
+    blur         = true,
+    sounds       = true,
+    compactMode  = false,
+    darkAccent   = false,
+    animSpeed    = 1.0,
+}
 
--- [ TWEEN HELPER ]
-local function tw(obj, t, props)
-    TweenService:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
+-- ════════════════════════════════════════════════════════════════════════════
+-- SESSION STATE  (in-memory only)
+-- ════════════════════════════════════════════════════════════════════════════
+local Persist = {}
+Persist.page        = Persist.page        or "Home"
+Persist.favorites   = Persist.favorites   or {}
+Persist.pinned      = Persist.pinned      or {}
+Persist.recent      = Persist.recent      or {}
+Persist.recentGames = Persist.recentGames or {}
+Persist.execCount   = Persist.execCount   or 0
+Persist.totalExecs  = Persist.totalExecs  or {}
+Persist.notes       = Persist.notes       or {}
+Persist.lastUsed    = Persist.lastUsed    or {}
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SESSION PREVIEW STATE (kept in memory only)
+-- ════════════════════════════════════════════════════════════════════════════
+local function readUsageFile() return nil end
+local function mergeUsageFromDisk(_) end
+local function saveUsageFile() return false end
+
+-- INSTANCE HELPERS
+-- ════════════════════════════════════════════════════════════════════════════
+local function prop(obj, values)
+    for k, v in pairs(values or {}) do obj[k] = v end
+    return obj
 end
 
--- [ DRAGGING ]
-local function makeDrag(handle, frame)
-    local drag, dStart, fStart
-    handle.InputBegan:Connect(function(i)
-        if (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) and not _G.LP_Resizing then
-            drag = true
-            dStart = i.Position
-            fStart = frame.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then drag = false end
-            end)
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local d = i.Position - dStart
-            frame.Position = UDim2.new(fStart.X.Scale, fStart.X.Offset + d.X, fStart.Y.Scale, fStart.Y.Offset + d.Y)
-        end
-    end)
+local function new(class, parent, values)
+    local obj = Instance.new(class)
+    obj.Parent = parent
+    return prop(obj, values)
 end
 
--- =============================================================
--- [ TOGGLE BUTTON ]
--- =============================================================
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Name = "LP10_Toggle"
-ToggleBtn.Parent = SG
-ToggleBtn.BackgroundColor3 = BG
-ToggleBtn.Position = UDim2.new(0.05, 0, 0.08, 0)
-ToggleBtn.Size = UDim2.new(0, 56, 0, 56)
-ToggleBtn.AutoButtonColor = false
-ToggleBtn.Text = "LP"
-ToggleBtn.Font = Enum.Font.FredokaOne
-ToggleBtn.TextScaled = true
-ToggleBtn.TextColor3 = WHITE
-ToggleBtn.ZIndex = 50
-Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 14)
-local tStroke = Instance.new("UIStroke", ToggleBtn)
-tStroke.Color = ACCENT
-tStroke.Thickness = 2
+local function frame(parent, values)
+    local obj = new("Frame", parent, values)
+    obj.BorderSizePixel = 0
+    return obj
+end
 
-local tGrad = Instance.new("UIGradient", ToggleBtn)
-tGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, ACCENT2),
-    ColorSequenceKeypoint.new(1, ACCENT)
+local ElectricTargets = {}
+local RGBTargets = {}
+
+local function label(parent, values)
+    local obj = new("TextLabel", parent, values)
+    obj.BackgroundTransparency = 1
+    obj.TextWrapped = (values and values.TextWrapped) or false
+    obj.TextStrokeColor3 = C.electric
+    obj.TextStrokeTransparency = 0.6
+    table.insert(ElectricTargets, obj)
+    return obj
+end
+
+local function button(parent, values)
+    local obj = new("TextButton", parent, values)
+    obj.AutoButtonColor = false
+    obj.BorderSizePixel = 0
+    obj.TextStrokeColor3 = C.electric
+    obj.TextStrokeTransparency = 0.6
+    table.insert(ElectricTargets, obj)
+    return obj
+end
+
+local function input(parent, values)
+    local obj = new("TextBox", parent, values)
+    obj.BorderSizePixel = 0
+    obj.ClearTextOnFocus = false
+    return obj
+end
+
+local function round(obj, r)
+    return new("UICorner", obj, {CornerRadius = UDim.new(0, r or 12)})
+end
+
+local function outline(obj, col, th, trans)
+    return new("UIStroke", obj, {
+        Color = col or C.line,
+        Thickness = th or 1,
+        Transparency = trans or 0,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    })
+end
+
+local function fillGradient(obj, c0, c1, rot)
+    return new("UIGradient", obj, {
+        Color = ColorSequence.new(c0, c1),
+        Rotation = rot or 90,
+    })
+end
+
+local function transGradient(obj, t0, t1, rot)
+    return new("UIGradient", obj, {
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, t0),
+            NumberSequenceKeypoint.new(1, t1),
+        }),
+        Rotation = rot or 90,
+    })
+end
+
+local function inset(obj, l, r, t, b)
+    return new("UIPadding", obj, {
+        PaddingLeft   = UDim.new(0, l or 0),
+        PaddingRight  = UDim.new(0, r or 0),
+        PaddingTop    = UDim.new(0, t or 0),
+        PaddingBottom = UDim.new(0, b or 0),
+    })
+end
+
+local function listLayout(parent, dir, pad, sort)
+    return new("UIListLayout", parent, {
+        FillDirection = dir or Enum.FillDirection.Vertical,
+        Padding       = UDim.new(0, pad or 10),
+        SortOrder     = sort or Enum.SortOrder.LayoutOrder,
+    })
+end
+
+local GLOW_IMG = "rbxassetid://5028857084"
+
+local function glow(parent, size, col, trans, pos)
+    return new("ImageLabel", parent, {
+        Image = GLOW_IMG,
+        ImageColor3 = col or C.royal,
+        ImageTransparency = trans or 0.7,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(size, size),
+        Position = pos or UDim2.new(0.5, -size/2, 0.5, -size/2),
+        ZIndex = 1,
+    })
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- TWEEN HELPERS
+-- ════════════════════════════════════════════════════════════════════════════
+local function tw(obj, dur, props, sty, dir)
+    local t = Settings.reduceMotion and math.min(dur, 0.12) or dur
+    local info = TweenInfo.new(t, sty or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out)
+    TweenService:Create(obj, info, props):Play()
+end
+
+local function spring(obj, dur, props)
+    tw(obj, dur, props, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+local function sine(obj, dur, props)
+    tw(obj, dur, props, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SOUNDS
+-- ════════════════════════════════════════════════════════════════════════════
+local Snd = {}
+pcall(function()
+    local function mkS(id, vol, pitch)
+        return new("Sound", SoundService, {SoundId="rbxassetid://"..id, Volume=vol, PlaybackSpeed=pitch})
+    end
+    Snd.open  = mkS("6020394739", 0.38, 1.12)
+    Snd.close = mkS("6020394739", 0.28, 0.82)
+    Snd.tap   = mkS("6020394739", 0.16, 1.45)
+    Snd.slide = mkS("5997084542", 0.24, 1.00)
+    Snd.exec  = mkS("4959484451", 0.50, 1.00)
+    Snd.notif = mkS("6020394739", 0.14, 1.68)
+    Snd.pop   = mkS("6020394739", 0.12, 1.32)
+    Snd.error = mkS("6020394739", 0.22, 0.65)
+    Snd.success=mkS("4959484451", 0.32, 1.20)
+end)
+
+local function play(k)
+    if not Settings.sounds then return end
+    pcall(function() if Snd[k] then Snd[k]:Play() end end)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- UI PREVIEW CLIPBOARD STUB
+-- ════════════════════════════════════════════════════════════════════════════
+local function setClip(_)
+    return false
+end
+
+local PREVIEW_MODE = "UI-only preview"
+local GAME_NAME   = "Halloween Preview"
+local CURRENT_TIME = os.date("%H:%M")
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 42 DISPLAY ENTRIES (METADATA ONLY; NO EXECUTABLE CODE)
+-- ════════════════════════════════════════════════════════════════════════════
+local Scripts = {
+    -- ★ TOP / FEATURED ★
+    {
+        N = "+1 Assassin Leveling", New = true, Rainbow = false, Cat = "Universal", col = C.electric,
+        F = "Halloween UI-only catalog preview; no executable payload is included.",
+        
+    },
+    {
+        N = "Steal From the rich", New = false, Cat = "Universal", col = C.electric,
+        F = "Halloween UI-only catalog preview; no executable payload is included.",
+        
+    },
+    {
+        N = "RUNAWAYS", New = false, Cat = "Universal", col = C.electric,
+        F = "Halloween UI-only catalog preview; no executable payload is included.",
+        
+    },
+    {
+        N = "+1 Wings For Eggs", New = false, Cat = "Universal", col = C.electric,
+        F = "Halloween UI-only catalog preview; no executable payload is included.",
+        
+    },
+    {N="Dead rails New",                         New=false, Cat="Universal", col=C.orange,
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Heroes RNG",                             New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="+1 Double Jump Bike Escape",           New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="+1 Muscles for Prison Escape",         New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Iron Soul: Dungeon",                    New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="New free Gamepasses",                    New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    -- ★ NEW SCRIPTS ★
+    {
+        N = "Greedy Growers", New = false, Cat = "Universal",
+        F = "Halloween UI-only catalog preview; no executable payload is included.",
+        
+    },
+    {
+        N = "Drive Car and Slide", New = false, Cat = "Universal",
+        F = "Halloween UI-only catalog preview; no executable payload is included.",
+        
+    },
+    {
+        N = "Speed Vs Giant", New = false, Cat = "Universal",
+        F = "Halloween UI-only catalog preview; no executable payload is included.",
+        
+    },
+    -- CORE LIBRARY
+    {N="Scream for brainrot",                 New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Fake Lag / Disconnecting",             New=false, Cat="Utility",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Cheese Escape [Horror]",               New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Build a Store",                        New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Kick a Lucky Block",                   New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Combat Arena Op Silent Aim",           New=false, Cat="Combat",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="1 Plank = $1/s",                       New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Mutate The Brainrot",                  New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Launch Yourself For Brainrots!",       New=false, Cat="Movement",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Coordinates And Save Teleport",        New=false, Cat="Teleport",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Build A Farm Factory",                 New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Free Gamepasses",                      New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Hide & Seek",                          New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Impossible Squid Game Glass Bridge 2", New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Rivals Silent Aim",                    New=false, Cat="Combat",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Squabble Game RP",                     New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Parkour for Brainrots",                New=false, Cat="Movement",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Ride Storm",                           New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Skateboard for Brainrots",             New=false, Cat="Movement",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Emotes",                               New=false, Cat="Visual",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Noob Army Tycoon",                     New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Ride the Coaster",                     New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Dead Rails",                           New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Don't Get Caught for Hackers",         New=false, Cat="Utility",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Brainrot Ascension",                   New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Paper Plane Training",                 New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Cursed Blade [ALPHA]",                 New=false, Cat="Combat",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="OneShot",                              New=false, Cat="Combat",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+    {N="Build a Boat for Treasure",            New=false, Cat="Universal",
+     F = "Halloween UI-only catalog preview; no executable payload is included.",
+     },
+}
+
+local SCRIPT_COUNT = #Scripts  -- 42
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- CATEGORIES
+-- ════════════════════════════════════════════════════════════════════════════
+local CATS = {
+    {id="All",       label="All",        icon="▦"},
+    {id="New",       label="New",        icon="★"},
+    {id="Universal", label="Universal",  icon="◈"},
+    {id="Combat",    label="Combat",     icon="⚔"},
+    {id="Movement",  label="Movement",   icon="↑"},
+    {id="Teleport",  label="Teleport",   icon="⊛"},
+    {id="Utility",   label="Utility",    icon="⚙"},
+    {id="Visual",    label="Visual",     icon="◉"},
+}
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- NAVIGATION PAGES
+-- ════════════════════════════════════════════════════════════════════════════
+local Pages = {
+    {id="Home",      label="Home",      icon="🕸"},
+    {id="Scripts",   label="Catalog",   icon="🎃"},
+    {id="Favorites", label="Favorites", icon="★"},
+    {id="Pinned",    label="Pinned",    icon="◆"},
+    {id="Recent",    label="Recent",    icon="↺"},
+    {id="Popular",   label="Popular",   icon="▴"},
+    {id="Games",     label="Games",     icon="👻"},
+    {id="Changelog", label="Changelog", icon="✦"},
+    {id="Settings",  label="Settings",  icon="⚙"},
+}
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- CORE GUI SETUP
+-- ════════════════════════════════════════════════════════════════════════════
+local PlayerGui = LP:WaitForChild("PlayerGui")
+pcall(function()
+    local prev = PlayerGui:FindFirstChild("LP10_Ultimate")
+    if prev then prev:Destroy() end
+end)
+
+local GUI = new("ScreenGui", PlayerGui, {
+    Name           = "LP10_Ultimate",
+    IgnoreGuiInset = true,
+    ResetOnSpawn   = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
-tGrad.Rotation = 90
 
--- =============================================================
--- [ MAIN FRAME ]
--- =============================================================
-local Main = Instance.new("Frame")
-Main.Name = "LP10_Main"
-Main.Parent = SG
-Main.BackgroundColor3 = BG
-Main.Position = UDim2.new(0.5, -W/2, 0.5, -H/2)
-Main.Size = UDim2.new(0, W, 0, H)
-Main.Visible = true
-Main.Active = true
-Main.ClipsDescendants = true
-Main.ZIndex = 10
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
-local mainStroke = Instance.new("UIStroke", Main)
-mainStroke.Color = ACCENT
-mainStroke.Thickness = 1.5
+local Blur = new("BlurEffect", Lighting, {Name="LP10_UltimateBlur", Size=0, Enabled=false})
 
--- [ TITLEBAR ]
-local TitleBar = Instance.new("Frame", Main)
-TitleBar.Size = UDim2.new(1, 0, 0, 42)
-TitleBar.BackgroundColor3 = SURFACE
-TitleBar.ZIndex = 11
-Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 12)
+-- ════════════════════════════════════════════════════════════════════════════
+-- TOAST NOTIFICATION SYSTEM
+-- ════════════════════════════════════════════════════════════════════════════
+local toastQueue = {}
+local toastActive = false
 
-local titleFix = Instance.new("Frame", TitleBar)
-titleFix.Size = UDim2.new(1, 0, 0.5, 0)
-titleFix.Position = UDim2.new(0, 0, 0.5, 0)
-titleFix.BackgroundColor3 = SURFACE
-titleFix.BorderSizePixel = 0
-titleFix.ZIndex = 11
+local function showNextToast()
+    if #toastQueue == 0 then toastActive = false; return end
+    toastActive = true
+    local data = table.remove(toastQueue, 1)
+    local card = frame(GUI, {
+        Size             = UDim2.fromOffset(320, 76),
+        Position         = UDim2.new(1, 20, 1, -100),
+        BackgroundColor3 = C.panel,
+        ZIndex           = 120,
+    })
+    round(card, 16)
+    outline(card, data.col or C.electric, 1.2)
+    fillGradient(card, Color3.fromRGB(30,12,20), C.surface, 135)
+    -- color bar
+    frame(card, {
+        Size             = UDim2.new(0, 3, 1, -22),
+        Position         = UDim2.fromOffset(10, 11),
+        BackgroundColor3 = data.col or C.electric,
+        ZIndex           = 121,
+    })
+    glow(card, 80, data.col or C.electric, 0.82, UDim2.fromOffset(-10, -10))
+    label(card, {
+        Size           = UDim2.new(1, -42, 0, 22),
+        Position       = UDim2.fromOffset(28, 12),
+        Text           = data.title,
+        TextColor3     = C.white,
+        Font           = Enum.Font.GothamBold,
+        TextSize       = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex         = 121,
+    })
+    label(card, {
+        Size           = UDim2.new(1, -42, 0, 26),
+        Position       = UDim2.fromOffset(28, 36),
+        Text           = data.msg,
+        TextColor3     = C.text,
+        Font           = Enum.Font.Gotham,
+        TextSize       = 11,
+        TextWrapped    = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex         = 121,
+    })
+    play("notif")
+    tw(card, 0.36, {Position = UDim2.new(1, -338, 1, -100)})
+    task.delay(3.4, function()
+        if card and card.Parent then
+            tw(card, 0.28, {Position = UDim2.new(1, 20, 1, -100)}, nil, Enum.EasingDirection.In)
+            task.wait(0.32)
+            pcall(function() card:Destroy() end)
+        end
+        task.wait(0.12)
+        showNextToast()
+    end)
+end
 
-local titleLine = Instance.new("Frame", TitleBar)
-titleLine.Size = UDim2.new(1, 0, 0, 1)
-titleLine.Position = UDim2.new(0, 0, 1, -1)
-titleLine.BackgroundColor3 = ACCENT
-titleLine.ZIndex = 12
+local function toast(title, msg, col)
+    table.insert(toastQueue, {title=title, msg=msg, col=col})
+    if not toastActive then showNextToast() end
+end
 
-local titleIcon = Instance.new("TextLabel", TitleBar)
-titleIcon.Size = UDim2.new(0, 26, 0, 26)
-titleIcon.Position = UDim2.new(0, 8, 0.5, -13)
-titleIcon.BackgroundColor3 = ACCENT
-titleIcon.Text = "LP"
-titleIcon.Font = Enum.Font.FredokaOne
-titleIcon.TextSize = 13
-titleIcon.TextColor3 = WHITE
-titleIcon.ZIndex = 12
-Instance.new("UICorner", titleIcon).CornerRadius = UDim.new(0, 6)
+-- ════════════════════════════════════════════════════════════════════════════
+-- BUTTON INTERACTION WIRING
+-- ════════════════════════════════════════════════════════════════════════════
+local function wire(item, base, hover)
+    item.MouseEnter:Connect(function()
+        tw(item, 0.14, {BackgroundColor3 = hover or C.cardHot})
+    end)
+    item.MouseLeave:Connect(function()
+        tw(item, 0.14, {BackgroundColor3 = base})
+    end)
+    item.MouseButton1Down:Connect(function()
+        spring(item, 0.1, {Size = UDim2.new(
+            item.Size.X.Scale, item.Size.X.Offset - 3,
+            item.Size.Y.Scale, item.Size.Y.Offset - 2)})
+    end)
+    item.MouseButton1Up:Connect(function()
+        spring(item, 0.16, {Size = UDim2.new(
+            item.Size.X.Scale, item.Size.X.Offset + 3,
+            item.Size.Y.Scale, item.Size.Y.Offset + 2)})
+    end)
+end
 
-local titleName = Instance.new("TextLabel", TitleBar)
-titleName.Size = UDim2.new(1, -100, 1, 0)
-titleName.Position = UDim2.new(0, 42, 0, 0)
-titleName.BackgroundTransparency = 1
-titleName.Text = HubName
-titleName.Font = Enum.Font.GothamBold
-titleName.TextSize = 14
-titleName.TextColor3 = WHITE
-titleName.TextXAlignment = Enum.TextXAlignment.Left
-titleName.ZIndex = 12
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIST HELPERS
+-- ════════════════════════════════════════════════════════════════════════════
+local function has(tbl, val)
+    for _, v in ipairs(tbl) do if v == val then return true end end
+    return false
+end
 
-local CloseBtn = Instance.new("TextButton", TitleBar)
-CloseBtn.Size = UDim2.new(0, 24, 0, 24)
-CloseBtn.Position = UDim2.new(1, -32, 0.5, -12)
-CloseBtn.BackgroundColor3 = RED
-CloseBtn.Text = "x"
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 11
-CloseBtn.TextColor3 = WHITE
-CloseBtn.AutoButtonColor = false
-CloseBtn.ZIndex = 13
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 5)
+local function flip(tbl, val)
+    for i, v in ipairs(tbl) do
+        if v == val then table.remove(tbl, i); return false end
+    end
+    table.insert(tbl, 1, val)
+    return true
+end
 
-makeDrag(TitleBar, Main)
-makeDrag(ToggleBtn, ToggleBtn)
+local function addRecent(name)
+    for i, v in ipairs(Persist.recent) do
+        if v == name then table.remove(Persist.recent, i); break end
+    end
+    table.insert(Persist.recent, 1, name)
+    if #Persist.recent > 12 then
+        table.remove(Persist.recent, #Persist.recent)
+    end
+end
 
--- [ TAB BAR ]
-local TabBar = Instance.new("Frame", Main)
-TabBar.Size = UDim2.new(1, 0, 0, 34)
-TabBar.Position = UDim2.new(0, 0, 0, 42)
-TabBar.BackgroundColor3 = SURFACE
-TabBar.ZIndex = 11
-local tbarLine = Instance.new("Frame", TabBar)
-tbarLine.Size = UDim2.new(1, 0, 0, 1)
-tbarLine.Position = UDim2.new(0, 0, 1, -1)
-tbarLine.BackgroundColor3 = LINE
-tbarLine.ZIndex = 12
-local tabLayout = Instance.new("UIListLayout", TabBar)
-tabLayout.FillDirection = Enum.FillDirection.Horizontal
-tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local function popularScripts(limit)
+    local ranked = {}
+    for _, data in ipairs(Scripts) do
+        table.insert(ranked, {
+            data  = data,
+            count = tonumber(Persist.totalExecs[data.N]) or 0,
+        })
+    end
+    table.sort(ranked, function(a, b)
+        if a.count == b.count then return a.data.N < b.data.N end
+        return a.count > b.count
+    end)
 
--- [ SCROLL CONTENT ]
-local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size = UDim2.new(1, 0, 1, -78)
-Scroll.Position = UDim2.new(0, 0, 0, 78)
-Scroll.BackgroundTransparency = 1
-Scroll.ScrollBarThickness = 3
-Scroll.ScrollBarImageColor3 = ACCENT
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Scroll.ZIndex = 11
-local scrollPad = Instance.new("UIPadding", Scroll)
-scrollPad.PaddingTop = UDim.new(0, 8)
-scrollPad.PaddingBottom = UDim.new(0, 12)
-scrollPad.PaddingLeft = UDim.new(0, 8)
-scrollPad.PaddingRight = UDim.new(0, 8)
-local scrollLayout = Instance.new("UIListLayout", Scroll)
-scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-scrollLayout.Padding = UDim.new(0, 5)
+    local result = {}
+    for _, item in ipairs(ranked) do
+        if item.count > 0 then
+            table.insert(result, item.data)
+            if limit and #result >= limit then break end
+        end
+    end
+    return result
+end
 
--- [ RESIZE HANDLE ]
-local Resize = Instance.new("TextButton", Main)
-Resize.Size = UDim2.new(0, 20, 0, 20)
-Resize.Position = UDim2.new(1, -20, 1, -20)
-Resize.BackgroundTransparency = 1
-Resize.Text = "◢"
-Resize.TextColor3 = MUTED
-Resize.TextSize = 13
-Resize.Font = Enum.Font.Gotham
-Resize.ZIndex = 15
-Resize.AutoButtonColor = false
-local savedSize = Main.Size
+-- ════════════════════════════════════════════════════════════════════════════
+-- MAIN SHELL LAYOUT
+-- ════════════════════════════════════════════════════════════════════════════
+local Main = frame(GUI, {
+    Size             = UDim2.fromScale(1, 1),
+    Position         = UDim2.fromScale(0, 0),
+    BackgroundColor3 = C.bg,
+    Visible          = false,
+    ClipsDescendants = true,
+    ZIndex           = 5,
+})
+outline(Main, C.line, 1.4)
 
-Resize.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        _G.LP_Resizing = true
-        local ds, ss = i.Position, Main.Size
-        local con
-        con = UIS.InputChanged:Connect(function(m)
-            if m.UserInputType == Enum.UserInputType.MouseMovement or m.UserInputType == Enum.UserInputType.Touch then
-                local d = m.Position - ds
-                local nW = math.clamp(ss.X.Offset + d.X, MinSize.X, MaxSize.X)
-                local nH = math.clamp(ss.Y.Offset + d.Y, MinSize.Y, MaxSize.Y)
-                Main.Size = UDim2.new(0, nW, 0, nH)
-                savedSize = Main.Size
-            end
-        end)
-        i.Changed:Connect(function()
-            if i.UserInputState == Enum.UserInputState.End then
-                _G.LP_Resizing = false
-                con:Disconnect()
-            end
-        end)
+local MainBack = frame(Main, {
+    Size             = UDim2.fromScale(1, 1),
+    BackgroundColor3 = C.surface,
+    ZIndex           = 5,
+})
+fillGradient(MainBack, Color3.fromRGB(16,8,10), C.bg, 135)
+
+-- HALLOWEEN AMBIENT background
+local EmberFX = frame(Main, {
+    Size                 = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    ClipsDescendants     = true,
+    ZIndex               = 5,
+})
+
+local EmberOne = new("ImageLabel", EmberFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,117,24), ImageTransparency = 0.80,
+    BackgroundTransparency = 1, Size = UDim2.fromOffset(390,390),
+    Position = UDim2.new(0.05,-195,0.10,-195), ZIndex = 5,
+})
+local EmberTwo = new("ImageLabel", EmberFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(109,40,217), ImageTransparency = 0.84,
+    BackgroundTransparency = 1, Size = UDim2.fromOffset(330,330),
+    Position = UDim2.new(0.95,-165,0.82,-165), ZIndex = 5,
+})
+local EmberThree = new("ImageLabel", EmberFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(189,119,255), ImageTransparency = 0.90,
+    BackgroundTransparency = 1, Size = UDim2.fromOffset(260,260),
+    Position = UDim2.new(0.58,-130,1.05,-130), ZIndex = 5,
+})
+local EmberFour = new("ImageLabel", EmberFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,145,44), ImageTransparency = 0.88,
+    BackgroundTransparency = 1, Size = UDim2.fromOffset(200,200),
+    Position = UDim2.new(0.5,-100,0.5,-100), ZIndex = 5,
+})
+local EmberLine = frame(EmberFX, {
+    Size = UDim2.new(1.5,0,0,1), Position = UDim2.new(-0.25,0,0.34,0),
+    BackgroundColor3 = C.electric, BackgroundTransparency = 0.92, Rotation = -18, ZIndex = 5,
+})
+local EmberLine2 = frame(EmberFX, {
+    Size = UDim2.new(1.5,0,0,1), Position = UDim2.new(-0.25,0,0.64,0),
+    BackgroundColor3 = C.violet, BackgroundTransparency = 0.94, Rotation = 12, ZIndex = 5,
+})
+
+task.spawn(function()
+    while GUI and GUI.Parent do
+        local active = Settings.particles and not Settings.performance and not Settings.reduceMotion
+        EmberFX.Visible = active
+        if active then
+            sine(EmberOne,   5.8, {Position=UDim2.new(0.22,-195,0.24,-195), ImageTransparency=0.88})
+            sine(EmberTwo,   6.4, {Position=UDim2.new(0.78,-165,0.68,-165), ImageTransparency=0.90})
+            sine(EmberThree, 4.8, {Position=UDim2.new(0.42,-130,0.86,-130), ImageTransparency=0.94})
+            sine(EmberFour,  7.0, {Position=UDim2.new(0.38,-100,0.38,-100), ImageTransparency=0.92})
+            sine(EmberLine,  7.2, {Position=UDim2.new(0.05,0,0.62,0),       BackgroundTransparency=0.96})
+            sine(EmberLine2, 5.6, {Position=UDim2.new(0.15,0,0.28,0),       BackgroundTransparency=0.97})
+            task.wait(4.4)
+            sine(EmberOne,   5.8, {Position=UDim2.new(0.05,-195,0.10,-195), ImageTransparency=0.80})
+            sine(EmberTwo,   6.4, {Position=UDim2.new(0.95,-165,0.82,-165), ImageTransparency=0.84})
+            sine(EmberThree, 4.8, {Position=UDim2.new(0.58,-130,1.05,-130), ImageTransparency=0.90})
+            sine(EmberFour,  7.0, {Position=UDim2.new(0.5,-100,0.5,-100),   ImageTransparency=0.88})
+            sine(EmberLine,  7.2, {Position=UDim2.new(-0.25,0,0.34,0),      BackgroundTransparency=0.92})
+            sine(EmberLine2, 5.6, {Position=UDim2.new(-0.25,0,0.64,0),      BackgroundTransparency=0.94})
+            task.wait(4.4)
+        else
+            task.wait(0.8)
+        end
     end
 end)
 
--- =============================================================
--- [ NOTIFY SYSTEM ]
--- =============================================================
-local NotifFrame = Instance.new("Frame", SG)
-NotifFrame.Size = UDim2.new(0, 270, 1, 0)
-NotifFrame.Position = UDim2.new(1, -280, 0, 0)
-NotifFrame.BackgroundTransparency = 1
-NotifFrame.ZIndex = 100
-local nLayout = Instance.new("UIListLayout", NotifFrame)
-nLayout.SortOrder = Enum.SortOrder.LayoutOrder
-nLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-nLayout.Padding = UDim.new(0, 6)
+local Inner = frame(Main, {
+    Size                 = UDim2.fromScale(1,1),
+    BackgroundTransparency = 1,
+    ClipsDescendants     = true,
+    ZIndex               = 6,
+})
 
-local function notify(title, msg, color, dur)
-    color = color or ACCENT
-    dur = dur or 4
-    local c = Instance.new("Frame", NotifFrame)
-    c.Size = UDim2.new(1, 0, 0, 0)
-    c.BackgroundColor3 = SURFACE
-    c.ClipsDescendants = true
-    c.ZIndex = 100
-    Instance.new("UICorner", c).CornerRadius = UDim.new(0, 8)
-    local cs = Instance.new("UIStroke", c)
-    cs.Color = color
-    cs.Thickness = 1.2
-    local bar = Instance.new("Frame", c)
-    bar.Size = UDim2.new(0, 3, 1, 0)
-    bar.BackgroundColor3 = color
-    bar.ZIndex = 101
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
-    local t1 = Instance.new("TextLabel", c)
-    t1.Size = UDim2.new(1, -14, 0, 18)
-    t1.Position = UDim2.new(0, 10, 0, 5)
-    t1.BackgroundTransparency = 1
-    t1.Text = title
-    t1.Font = Enum.Font.GothamBold
-    t1.TextSize = 12
-    t1.TextColor3 = WHITE
-    t1.TextXAlignment = Enum.TextXAlignment.Left
-    t1.ZIndex = 101
-    local t2 = Instance.new("TextLabel", c)
-    t2.Size = UDim2.new(1, -14, 0, 26)
-    t2.Position = UDim2.new(0, 10, 0, 23)
-    t2.BackgroundTransparency = 1
-    t2.Text = msg
-    t2.Font = Enum.Font.Gotham
-    t2.TextSize = 11
-    t2.TextColor3 = TEXT
-    t2.TextXAlignment = Enum.TextXAlignment.Left
-    t2.TextWrapped = true
-    t2.ZIndex = 101
-    c:TweenSize(UDim2.new(1, 0, 0, 54), "Out", "Quart", 0.2, true)
-    task.delay(dur, function()
-        c:TweenSize(UDim2.new(1, 0, 0, 0), "In", "Quart", 0.2, true, function() c:Destroy() end)
-    end)
+-- ════════════════════════════════════════════════════════════════════════════
+-- HEADER BAR
+-- ════════════════════════════════════════════════════════════════════════════
+local Header = frame(Inner, {
+    Size             = UDim2.new(1,0,0,62),
+    BackgroundColor3 = Color3.fromRGB(16,8,11),
+    ZIndex           = 20,
+})
+fillGradient(Header, Color3.fromRGB(29,14,17), Color3.fromRGB(11,6,8), 0)
+-- bottom border
+frame(Header, {
+    Size             = UDim2.new(1,0,0,1),
+    Position         = UDim2.new(0,0,1,-1),
+    BackgroundColor3 = C.line,
+    ZIndex           = 21,
+})
+-- glow line
+frame(Header, {
+    Size             = UDim2.new(0.6,0,0,1),
+    Position         = UDim2.new(0.2,0,1,-1),
+    BackgroundColor3 = C.electric,
+    BackgroundTransparency = 0.7,
+    ZIndex           = 21,
+})
+
+-- Brand logo
+local Brand = frame(Header, {
+    Size             = UDim2.fromOffset(38,38),
+    Position         = UDim2.fromOffset(14,12),
+    BackgroundColor3 = C.royal,
+    ZIndex           = 22,
+})
+round(Brand, 12)
+fillGradient(Brand, C.electric, C.royal, 135)
+label(Brand, {
+    Size=UDim2.fromScale(1,1), Text="🎃", TextColor3=Color3.new(1,1,1),
+    Font=Enum.Font.GothamBold, TextSize=15, ZIndex=23,
+})
+glow(Brand, 80, C.electric, 0.68, UDim2.new(0.5,-40,0.5,-40))
+
+local BrandTitle = label(Header, {
+    Size=UDim2.fromOffset(180,22), Position=UDim2.fromOffset(62,10),
+    Text="LP10 HALLOWEEN", TextColor3=C.white,
+    Font=Enum.Font.GothamBold, TextSize=14,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=22,
+})
+local BrandSub = label(Header, {
+    Size=UDim2.fromOffset(240,17), Position=UDim2.fromOffset(62,32),
+    Text="HALLOWEEN PREVIEW  /  "..SCRIPT_COUNT.." ENTRIES  /  UI ONLY,
+    TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=22,
+})
+
+-- Live stats / clock
+local LiveStats = label(Header, {
+    Size=UDim2.fromOffset(240,16), Position=UDim2.new(1,-400,0,13),
+    Text="FPS 60    PING --ms    MEM --",
+    TextColor3=C.green, Font=Enum.Font.GothamSemibold, TextSize=10,
+    TextXAlignment=Enum.TextXAlignment.Right, ZIndex=22,
+})
+local ClockLabel = label(Header, {
+    Size=UDim2.fromOffset(240,15), Position=UDim2.new(1,-400,0,34),
+    Text=GAME_NAME.."  /  "..CURRENT_TIME,
+    TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Right, ZIndex=22,
+})
+
+-- Header buttons (right side)
+local function headerBtn(txt, posX, col)
+    local b = button(Header, {
+        Size=UDim2.fromOffset(28,28), Position=UDim2.new(1,posX,0,17),
+        BackgroundColor3=col or Color3.fromRGB(35,18,19),
+        Text=txt, TextColor3=C.ice,
+        Font=Enum.Font.GothamBold, TextSize=11,
+        ZIndex=23,
+    })
+    round(b, 8)
+    outline(b, C.line, 1)
+    wire(b, col or Color3.fromRGB(35,18,19), C.cardHot)
+    return b
 end
 
--- =============================================================
--- [ TAB SYSTEM ]
--- =============================================================
-local tabs = {}
-local activePage = nil
+local MinBtn      = headerBtn("─", -132, nil)
+local ModeBtn     = headerBtn("F", -100, nil)
+local SettingsBtn = headerBtn("⚙", -68, nil)
+local CloseBtn    = headerBtn("✕", -36, Color3.fromRGB(88,29,24))
 
-local function newTab(name)
-    local btn = Instance.new("TextButton", TabBar)
-    btn.Name = name
-    btn.Size = UDim2.new(0, 0, 1, 0)
-    btn.AutomaticSize = Enum.AutomaticSize.X
-    btn.BackgroundTransparency = 1
-    btn.Text = name
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextSize = 12
-    btn.TextColor3 = MUTED
-    btn.ZIndex = 12
-    btn.AutoButtonColor = false
-    local padBtn = Instance.new("UIPadding", btn)
-    padBtn.PaddingLeft = UDim.new(0, 10)
-    padBtn.PaddingRight = UDim.new(0, 10)
-    local ind = Instance.new("Frame", btn)
-    ind.Size = UDim2.new(0.7, 0, 0, 2)
-    ind.Position = UDim2.new(0.15, 0, 1, -2)
-    ind.BackgroundColor3 = ACCENT
-    ind.BackgroundTransparency = 1
-    ind.ZIndex = 13
-    Instance.new("UICorner", ind).CornerRadius = UDim.new(0, 1)
+-- ════════════════════════════════════════════════════════════════════════════
+-- SIDEBAR NAVIGATION
+-- ════════════════════════════════════════════════════════════════════════════
+local Side = frame(Inner, {
+    Size             = UDim2.new(0,160,1,-62),
+    Position         = UDim2.fromOffset(0,62),
+    BackgroundColor3 = C.sidebar,
+    ZIndex           = 14,
+})
+fillGradient(Side, Color3.fromRGB(14,8,11), Color3.fromRGB(7,4,6), 90)
+-- right border
+frame(Side, {
+    Size=UDim2.new(0,1,1,0), Position=UDim2.new(1,-1,0,0),
+    BackgroundColor3=C.line, ZIndex=15,
+})
+-- top accent line
+frame(Side, {
+    Size=UDim2.new(0,3,0.6,0), Position=UDim2.fromOffset(0,40),
+    BackgroundColor3=C.electric, BackgroundTransparency=0.7, ZIndex=15,
+})
 
-    local page = Instance.new("Frame", Scroll)
-    page.Name = "Page_" .. name
-    page.Size = UDim2.new(1, 0, 0, 0)
-    page.BackgroundTransparency = 1
-    page.AutomaticSize = Enum.AutomaticSize.Y
-    page.Visible = false
-    page.ZIndex = 11
-    local pLayout = Instance.new("UIListLayout", page)
-    pLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    pLayout.Padding = UDim.new(0, 5)
+-- user info panel at top of sidebar
+local UserPanel = frame(Side, {
+    Size=UDim2.new(1,0,0,74), BackgroundColor3=Color3.fromRGB(17,9,11), ZIndex=15,
+})
+fillGradient(UserPanel, Color3.fromRGB(33,17,19), Color3.fromRGB(17,9,11), 135)
+frame(UserPanel, {
+    Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1),
+    BackgroundColor3=C.line, ZIndex=16,
+})
+local avatarFrame = frame(UserPanel, {
+    Size=UDim2.fromOffset(36,36), Position=UDim2.fromOffset(12,19),
+    BackgroundColor3=C.royal, ZIndex=16,
+})
+round(avatarFrame, 18)
+fillGradient(avatarFrame, C.electric, C.royal, 135)
+label(avatarFrame, {
+    Size=UDim2.fromScale(1,1), Text=string.sub(LP.Name,1,1):upper(),
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=16, ZIndex=17,
+})
+glow(avatarFrame, 60, C.electric, 0.75, UDim2.new(0.5,-30,0.5,-30))
+label(UserPanel, {
+    Size=UDim2.new(1,-60,0,18), Position=UDim2.fromOffset(56,20),
+    Text=LP.Name, TextColor3=C.white,
+    Font=Enum.Font.GothamBold, TextSize=11,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
+})
+label(UserPanel, {
+    Size=UDim2.new(1,-60,0,15), Position=UDim2.fromOffset(56,40),
+    Text="● ONLINE", TextColor3=C.green,
+    Font=Enum.Font.GothamSemibold, TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
+})
 
-    local function activate()
-        for _, t in pairs(tabs) do
-            t.page.Visible = false
-            tw(t.btn, 0.12, {TextColor3 = MUTED})
-            tw(t.ind, 0.12, {BackgroundTransparency = 1})
-        end
-        page.Visible = true
-        tw(btn, 0.12, {TextColor3 = WHITE})
-        tw(ind, 0.12, {BackgroundTransparency = 0})
-        activePage = name
+local NavScroll = new("ScrollingFrame", Side, {
+    Size=UDim2.new(1,0,1,-130), Position=UDim2.fromOffset(0,74),
+    BackgroundTransparency=1,
+    ScrollBarThickness=0,
+    CanvasSize=UDim2.fromOffset(0,0),
+    AutomaticCanvasSize=Enum.AutomaticSize.Y,
+    ZIndex=14,
+})
+listLayout(NavScroll, Enum.FillDirection.Vertical, 2)
+
+local NavButtons = {}
+for _, pg in ipairs(Pages) do
+    local btn = button(NavScroll, {
+        Size=UDim2.new(1,-12,0,34), BackgroundColor3=Color3.fromRGB(11,6,8),
+        Text="  "..pg.icon.."  "..pg.label, TextColor3=C.text,
+        Font=Enum.Font.GothamSemibold, TextSize=11,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
+    })
+    round(btn, 10)
+    inset(btn, 6,0,0,0)
+    wire(btn, Color3.fromRGB(11,6,8), C.cardHot)
+    NavButtons[pg.id] = btn
+end
+
+-- About link at bottom of sidebar
+local AboutBtn = button(Side, {
+    Size=UDim2.new(1,0,0,34), Position=UDim2.new(0,0,1,-96),
+    BackgroundColor3=Color3.fromRGB(11,6,8),
+    Text="  ℹ  About LP10", TextColor3=C.muted,
+    Font=Enum.Font.GothamSemibold, TextSize=10,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
+})
+round(AboutBtn, 10)
+wire(AboutBtn, Color3.fromRGB(11,6,8), C.cardHot)
+
+-- Version tag at sidebar bottom
+label(Side, {
+    Size=UDim2.new(1,0,0,22), Position=UDim2.new(0,0,1,-36),
+    Text="v8  ULTIMATE  •  "..tostring(SCRIPT_COUNT).." SCRIPTS",
+    TextColor3=C.dim, Font=Enum.Font.Gotham, TextSize=8,
+    ZIndex=15,
+})
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- CONTENT AREA
+-- ════════════════════════════════════════════════════════════════════════════
+local Content = frame(Inner, {
+    Size=UDim2.new(1,-160,1,-62),
+    Position=UDim2.fromOffset(160,62),
+    BackgroundTransparency=1,
+    ZIndex=10,
+})
+
+-- Subheader strip
+local SubHeader = frame(Content, {
+    Size=UDim2.new(1,0,0,52),
+    BackgroundColor3=Color3.fromRGB(15,8,10),
+    ZIndex=11,
+})
+fillGradient(SubHeader, Color3.fromRGB(24,12,14), Color3.fromRGB(14,8,11), 0)
+frame(SubHeader, {
+    Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1),
+    BackgroundColor3=C.line, ZIndex=12,
+})
+
+local PageTitle = label(SubHeader, {
+    Size=UDim2.new(0.55,0,0,24), Position=UDim2.fromOffset(16,8),
+    Text="Welcome back", TextColor3=C.white,
+    Font=Enum.Font.GothamBold, TextSize=15,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=12,
+})
+local PageSub = label(SubHeader, {
+    Size=UDim2.new(0.6,0,0,16), Position=UDim2.fromOffset(16,32),
+    Text="Your command center.", TextColor3=C.muted,
+    Font=Enum.Font.Gotham, TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=12,
+})
+
+-- Search bar
+local SearchWrap = frame(SubHeader, {
+    Size=UDim2.fromOffset(210,30), Position=UDim2.new(1,-340,0,11),
+    BackgroundColor3=C.input, ZIndex=12,
+})
+round(SearchWrap, 10)
+outline(SearchWrap, C.line, 1)
+inset(SearchWrap, 10,30,0,0)
+label(SearchWrap, {
+    Size=UDim2.fromOffset(18,30), Position=UDim2.fromOffset(-2,0),
+    Text="🔍", TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11, ZIndex=13,
+})
+local SearchBox = input(SearchWrap, {
+    Size=UDim2.fromScale(1,1), BackgroundTransparency=1,
+    Text="", PlaceholderText="Search scripts…",
+    TextColor3=C.white, PlaceholderColor3=C.muted,
+    Font=Enum.Font.Gotham, TextSize=11,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=13,
+    ClearTextOnFocus=false,
+})
+local SearchClear = button(SearchWrap, {
+    Size=UDim2.fromOffset(26,30), Position=UDim2.new(1,-4,0,0),
+    BackgroundTransparency=1, Text="✕",
+    TextColor3=C.muted, Font=Enum.Font.GothamBold, TextSize=11,
+    Visible=false, ZIndex=13,
+})
+
+-- Category filter strip
+local CatStrip = frame(Content, {
+    Size=UDim2.new(1,0,0,38),
+    Position=UDim2.fromOffset(0,52),
+    BackgroundColor3=Color3.fromRGB(14,8,11),
+    ZIndex=11,
+})
+frame(CatStrip, {
+    Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1),
+    BackgroundColor3=C.line, ZIndex=12,
+})
+local CatScroll = new("ScrollingFrame", CatStrip, {
+    Size=UDim2.fromScale(1,1), BackgroundTransparency=1,
+    ScrollBarThickness=0, CanvasSize=UDim2.fromOffset(0,0),
+    AutomaticCanvasSize=Enum.AutomaticSize.X, ZIndex=12,
+})
+listLayout(CatScroll, Enum.FillDirection.Horizontal, 6)
+inset(CatScroll, 10,10,6,6)
+
+local CatButtons = {}
+local ActiveCat = "All"
+
+local function setCat(id)
+    ActiveCat = id
+    for cid, cb in pairs(CatButtons) do
+        local on = cid == id
+        cb.BackgroundColor3 = on and C.royal or Color3.fromRGB(26,14,17)
+        cb.TextColor3 = on and C.white or C.muted
     end
-
-    btn.MouseButton1Click:Connect(activate)
-    tabs[name] = {btn = btn, page = page, ind = ind, activate = activate}
-    if activePage == nil then activate() end
-    return page
 end
 
--- =============================================================
--- [ COMPONENTS ]
--- =============================================================
-
-local function section(parent, text)
-    local f = Instance.new("Frame", parent)
-    f.Size = UDim2.new(1, 0, 0, 24)
-    f.BackgroundTransparency = 1
-    f.ZIndex = 12
-    local line = Instance.new("Frame", f)
-    line.Size = UDim2.new(1, 0, 0, 1)
-    line.Position = UDim2.new(0, 0, 0.5, 0)
-    line.BackgroundColor3 = LINE
-    line.ZIndex = 12
-    local bg = Instance.new("Frame", f)
-    bg.AutomaticSize = Enum.AutomaticSize.X
-    bg.Size = UDim2.new(0, 0, 1, 0)
-    bg.BackgroundColor3 = BG
-    bg.ZIndex = 13
-    local lbl = Instance.new("TextLabel", bg)
-    lbl.AutomaticSize = Enum.AutomaticSize.X
-    lbl.Size = UDim2.new(0, 0, 1, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = "  " .. text .. "  "
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 10
-    lbl.TextColor3 = ACCENT2
-    lbl.ZIndex = 14
+for _, cat in ipairs(CATS) do
+    local cb = button(CatScroll, {
+        Size=UDim2.fromOffset(0,26),
+        AutomaticSize=Enum.AutomaticSize.X,
+        BackgroundColor3=cat.id=="All" and C.royal or Color3.fromRGB(26,14,17),
+        Text="  "..cat.icon.." "..cat.label.."  ",
+        TextColor3=cat.id=="All" and C.white or C.muted,
+        Font=Enum.Font.GothamSemibold, TextSize=10,
+        ZIndex=13,
+    })
+    round(cb, 8)
+    CatButtons[cat.id] = cb
+    cb.MouseButton1Click:Connect(function()
+        play("tap")
+        setCat(cat.id)
+        -- refresh will be called by current page logic
+        local refresh_fn = _G.LP10Refresh
+        if refresh_fn then refresh_fn() end
+    end)
 end
 
-local function button(parent, text, cb)
-    cb = cb or function() end
-    local f = Instance.new("Frame", parent)
-    f.Size = UDim2.new(1, 0, 0, 36)
-    f.BackgroundColor3 = CARD
-    f.ZIndex = 12
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 7)
-    local stroke = Instance.new("UIStroke", f)
-    stroke.Color = LINE
-    stroke.Thickness = 1
-    local btn = Instance.new("TextButton", f)
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = text
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextSize = 13
-    btn.TextColor3 = TEXT
-    btn.ZIndex = 13
-    btn.AutoButtonColor = false
-    btn.MouseEnter:Connect(function()
-        tw(f, 0.12, {BackgroundColor3 = Color3.fromRGB(30, 18, 62)})
-        tw(stroke, 0.12, {Color = ACCENT})
-        tw(btn, 0.12, {TextColor3 = WHITE})
-    end)
-    btn.MouseLeave:Connect(function()
-        tw(f, 0.12, {BackgroundColor3 = CARD})
-        tw(stroke, 0.12, {Color = LINE})
-        tw(btn, 0.12, {TextColor3 = TEXT})
-    end)
-    btn.MouseButton1Click:Connect(function()
-        tw(f, 0.07, {BackgroundColor3 = ACCENT})
-        task.wait(0.07)
-        tw(f, 0.12, {BackgroundColor3 = CARD})
-        pcall(cb)
-    end)
-    return btn
+-- Body scroll area
+local Body = new("ScrollingFrame", Content, {
+    Size=UDim2.new(1,0,1,-90),
+    Position=UDim2.fromOffset(0,90),
+    BackgroundTransparency=1,
+    ScrollBarThickness=3,
+    ScrollBarImageColor3=C.royal,
+    CanvasSize=UDim2.fromOffset(0,0),
+    AutomaticCanvasSize=Enum.AutomaticSize.Y,
+    ZIndex=11,
+    ClipsDescendants=true,
+})
+inset(Body, 14,14,14,24)
+listLayout(Body, Enum.FillDirection.Vertical, 10)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- DETAIL PANEL
+-- ════════════════════════════════════════════════════════════════════════════
+local Detail = frame(Inner, {
+    Size=UDim2.new(1,0,1,-62),
+    Position=UDim2.new(1,20,0,62),
+    BackgroundColor3=C.panel,
+    Visible=false,
+    ZIndex=60,
+})
+fillGradient(Detail, Color3.fromRGB(32,16,20), C.surface, 135)
+
+local DetailTop = frame(Detail, {
+    Size=UDim2.new(1,0,0,136), BackgroundTransparency=1, ZIndex=61,
+})
+frame(Detail, {
+    Size=UDim2.new(1,-32,0,1), Position=UDim2.fromOffset(16,136),
+    BackgroundColor3=C.line, ZIndex=61,
+})
+
+local DetailBack = button(DetailTop, {
+    Size=UDim2.fromOffset(36,36), Position=UDim2.fromOffset(16,16),
+    BackgroundColor3=C.card, Text="←",
+    TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=16, ZIndex=62,
+})
+round(DetailBack, 10)
+wire(DetailBack, C.card, C.cardHot)
+
+local DetailIcon = frame(DetailTop, {
+    Size=UDim2.fromOffset(62,62), Position=UDim2.fromOffset(62,16),
+    BackgroundColor3=C.royal, ZIndex=62,
+})
+round(DetailIcon, 18)
+fillGradient(DetailIcon, C.electric, C.royal, 135)
+glow(DetailIcon, 100, C.electric, 0.74, UDim2.new(0.5,-50,0.5,-50))
+local DetailIconLbl = label(DetailIcon, {
+    Size=UDim2.fromScale(1,1), Text="👻",
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=20, ZIndex=63,
+})
+
+local DetailNewBadge = frame(DetailTop, {
+    Size=UDim2.fromOffset(44,20), Position=UDim2.fromOffset(62,82),
+    BackgroundColor3=C.red, Visible=false, ZIndex=63,
+})
+round(DetailNewBadge, 8)
+label(DetailNewBadge, {
+    Size=UDim2.fromScale(1,1), Text="NEW",
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=9, ZIndex=64,
+})
+
+local DetailTitle = label(DetailTop, {
+    Size=UDim2.new(1,-148,0,44), Position=UDim2.fromOffset(138,18),
+    Text="", TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=16,
+    TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
+})
+local DetailMeta = label(DetailTop, {
+    Size=UDim2.new(1,-148,0,18), Position=UDim2.fromOffset(138,72),
+    Text="", TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
+})
+
+label(Detail, {
+    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,148),
+    Text="HALLOWEEN CATALOG NOTE", TextColor3=C.ice,
+    Font=Enum.Font.GothamBold, TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=61,
+})
+local DetailDesc = label(Detail, {
+    Size=UDim2.new(1,-32,0,86), Position=UDim2.fromOffset(16,172),
+    Text="", TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=12,
+    TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=61,
+})
+
+-- Exec count for this script
+local DetailExecCount = label(Detail, {
+    Size=UDim2.new(1,-32,0,20), Position=UDim2.fromOffset(16,264),
+    Text="", TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=10,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=61,
+})
+
+local DetailFav = button(Detail, {
+    Size=UDim2.new(0.5,-22,0,40), Position=UDim2.fromOffset(16,290),
+    BackgroundColor3=C.card, Text="★  FAVORITE",
+    TextColor3=C.yellow, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=61,
+})
+round(DetailFav, 11)
+outline(DetailFav, C.line, 1)
+wire(DetailFav, C.card, C.cardHot)
+
+local DetailPin = button(Detail, {
+    Size=UDim2.new(0.5,-22,0,40), Position=UDim2.new(0.5,6,0,290),
+    BackgroundColor3=C.card, Text="◆  PIN",
+    TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=61,
+})
+round(DetailPin, 11)
+outline(DetailPin, C.line, 1)
+wire(DetailPin, C.card, C.cardHot)
+
+local DetailCopyBtn = button(Detail, {
+    Size=UDim2.new(1,-32,0,36), Position=UDim2.fromOffset(16,342),
+    BackgroundColor3=C.card, Text="🕸  CODE NOT INCLUDED",
+    TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=61,
+})
+round(DetailCopyBtn, 11)
+outline(DetailCopyBtn, C.line, 1)
+wire(DetailCopyBtn, C.card, C.cardHot)
+DetailCopyBtn.Active = false
+DetailCopyBtn.Selectable = false
+
+local DetailExecute = button(Detail, {
+    Size=UDim2.new(1,-32,0,52), Position=UDim2.new(0,16,1,-72),
+    BackgroundColor3=C.electric, Text="👻  PREVIEW ONLY",
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=13, ZIndex=61,
+})
+round(DetailExecute, 14)
+fillGradient(DetailExecute, C.electric, C.royal, 0)
+glow(DetailExecute, 160, C.electric, 0.78, UDim2.new(0.5,-80,0.5,-80))
+wire(DetailExecute, C.electric, C.royal)
+DetailExecute.Active = false
+DetailExecute.Selectable = false
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PREVIEW ACTIONS (NO SCRIPT EXECUTION)
+-- ════════════════════════════════════════════════════════════════════════════
+local CurrentScript = nil
+
+local function execScript(data)
+    if not data then return false end
+    toast("Preview only", "This Halloween UI preview contains no runnable scripts.", C.orange)
+    return false
 end
 
-local function toggle(parent, text, default, cb)
-    default = default or false
-    cb = cb or function() end
-    local state = default
-    local f = Instance.new("Frame", parent)
-    f.Size = UDim2.new(1, 0, 0, 36)
-    f.BackgroundColor3 = CARD
-    f.ZIndex = 12
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 7)
-    local stroke = Instance.new("UIStroke", f)
-    stroke.Color = LINE
-    stroke.Thickness = 1
-    local lbl = Instance.new("TextLabel", f)
-    lbl.Size = UDim2.new(1, -60, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 13
-    lbl.TextColor3 = TEXT
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.ZIndex = 13
-    local track = Instance.new("Frame", f)
-    track.Size = UDim2.new(0, 38, 0, 19)
-    track.Position = UDim2.new(1, -48, 0.5, -9)
-    track.BackgroundColor3 = state and ACCENT or Color3.fromRGB(50, 30, 80)
-    track.ZIndex = 13
-    Instance.new("UICorner", track).CornerRadius = UDim.new(0, 9)
-    local knob = Instance.new("Frame", track)
-    knob.Size = UDim2.new(0, 13, 0, 13)
-    knob.Position = state and UDim2.new(1, -16, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)
-    knob.BackgroundColor3 = WHITE
-    knob.ZIndex = 14
-    Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 6)
-    local click = Instance.new("TextButton", f)
-    click.Size = UDim2.new(1, 0, 1, 0)
-    click.BackgroundTransparency = 1
-    click.Text = ""
-    click.ZIndex = 15
-    click.AutoButtonColor = false
-    local function update()
-        tw(track, 0.18, {BackgroundColor3 = state and ACCENT or Color3.fromRGB(50, 30, 80)})
-        tw(knob, 0.18, {Position = state and UDim2.new(1, -16, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)})
-        tw(stroke, 0.18, {Color = state and ACCENT or LINE})
+local function closeDetail()
+    play("slide")
+    Detail.Visible = true
+    tw(Detail, 0.28, {Position=UDim2.new(1,20,0,62)}, nil, Enum.EasingDirection.In)
+    task.delay(0.3, function()
+        if Detail then Detail.Visible = false end
+    end)
+end
+
+local function openDetail(data)
+    if not data then return end
+    CurrentScript = data
+    DetailTitle.Text = data.N
+    DetailMeta.Text  = (data.Cat or "Universal"):upper().."   /   "..(data.New and "★ NEW" or "CATALOG PREVIEW").."   /   UI ONLY"
+    DetailDesc.Text  = "Halloween catalog preview. This entry has no source code and cannot be executed."
+    DetailNewBadge.Visible = data.New == true
+    local execd = Persist.totalExecs[data.N] or 0
+    DetailExecCount.Text = "Preview only • no code payload stored"
+    DetailFav.Text = has(Persist.favorites, data.N) and "★  FAVORITED" or "★  FAVORITE"
+    DetailFav.TextColor3 = has(Persist.favorites, data.N) and C.yellow or C.muted
+    DetailPin.Text = has(Persist.pinned, data.N) and "◆  PINNED" or "◆  PIN"
+    DetailPin.TextColor3 = has(Persist.pinned, data.N) and C.ice or C.muted
+    -- icon initials
+    local words = {}
+    for w in data.N:gmatch("%S+") do table.insert(words, w) end
+    DetailIconLbl.Text = words[1] and string.sub(words[1],1,1):upper() or "▶"
+
+    play("slide")
+    Detail.Visible = true
+    Detail.Position = UDim2.new(1,20,0,62)
+    tw(Detail, 0.32, {Position=UDim2.new(0,0,0,62)})
+end
+
+DetailBack.MouseButton1Click:Connect(closeDetail)
+
+DetailFav.MouseButton1Click:Connect(function()
+    if not CurrentScript then return end
+    play("tap")
+    local on = flip(Persist.favorites, CurrentScript.N)
+    DetailFav.Text = on and "★  FAVORITED" or "★  FAVORITE"
+    DetailFav.TextColor3 = on and C.yellow or C.muted
+    spring(DetailFav, 0.2, {BackgroundColor3 = on and Color3.fromRGB(48,38,8) or C.card})
+    task.delay(0.3, function() tw(DetailFav, 0.2, {BackgroundColor3=C.card}) end)
+    toast(on and "Added to Favorites" or "Removed from Favorites", CurrentScript.N, C.yellow)
+end)
+
+DetailPin.MouseButton1Click:Connect(function()
+    if not CurrentScript then return end
+    play("tap")
+    local on = flip(Persist.pinned, CurrentScript.N)
+    DetailPin.Text = on and "◆  PINNED" or "◆  PIN"
+    DetailPin.TextColor3 = on and C.ice or C.muted
+    toast(on and "Pinned" or "Unpinned", CurrentScript.N, C.ice)
+end)
+
+-- Copy and execute controls are intentionally disabled in this UI-only preview.
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PAGE RENDERING SYSTEM
+-- ════════════════════════════════════════════════════════════════════════════
+local function wipeBody()
+    for _, c in ipairs(Body:GetChildren()) do
+        if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
+            c:Destroy()
+        end
     end
-    click.MouseButton1Click:Connect(function()
-        state = not state
-        update()
-        pcall(cb, state)
-    end)
-    update()
-    return {Get = function() return state end, Set = function(v) state = v update() pcall(cb, state) end}
+    Body.CanvasPosition = Vector2.new(0,0)
 end
 
-local function slider(parent, text, min, max, default, cb)
-    min = min or 0
-    max = max or 100
-    default = math.clamp(default or min, min, max)
-    cb = cb or function() end
-    local val = default
-    local f = Instance.new("Frame", parent)
-    f.Size = UDim2.new(1, 0, 0, 50)
-    f.BackgroundColor3 = CARD
-    f.ZIndex = 12
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 7)
-    local stroke = Instance.new("UIStroke", f)
-    stroke.Color = LINE
-    stroke.Thickness = 1
-    local lbl = Instance.new("TextLabel", f)
-    lbl.Size = UDim2.new(1, -50, 0, 22)
-    lbl.Position = UDim2.new(0, 10, 0, 4)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 13
-    lbl.TextColor3 = TEXT
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.ZIndex = 13
-    local valLbl = Instance.new("TextLabel", f)
-    valLbl.Size = UDim2.new(0, 40, 0, 18)
-    valLbl.Position = UDim2.new(1, -48, 0, 5)
-    valLbl.BackgroundColor3 = Color3.fromRGB(50, 20, 100)
-    valLbl.Text = tostring(val)
-    valLbl.Font = Enum.Font.GothamBold
-    valLbl.TextSize = 11
-    valLbl.TextColor3 = ACCENT2
-    valLbl.ZIndex = 13
-    Instance.new("UICorner", valLbl).CornerRadius = UDim.new(0, 4)
-    local trackBg = Instance.new("Frame", f)
-    trackBg.Size = UDim2.new(1, -20, 0, 5)
-    trackBg.Position = UDim2.new(0, 10, 0, 34)
-    trackBg.BackgroundColor3 = Color3.fromRGB(50, 30, 80)
-    trackBg.ZIndex = 13
-    Instance.new("UICorner", trackBg).CornerRadius = UDim.new(0, 2)
-    local fill = Instance.new("Frame", trackBg)
-    fill.Size = UDim2.new((val - min) / (max - min), 0, 1, 0)
-    fill.BackgroundColor3 = ACCENT
-    fill.ZIndex = 14
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 2)
-    local knob = Instance.new("Frame", trackBg)
-    knob.Size = UDim2.new(0, 13, 0, 13)
-    knob.AnchorPoint = Vector2.new(0.5, 0.5)
-    knob.Position = UDim2.new((val - min) / (max - min), 0, 0.5, 0)
-    knob.BackgroundColor3 = WHITE
-    knob.ZIndex = 15
-    Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 6)
-    local Instance2 = Instance.new("UIStroke", knob)
-    Instance2.Color = ACCENT
-    Instance2.Thickness = 1.5
-    local dragging = false
-    trackBg.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local abs = trackBg.AbsolutePosition
-            local sz = trackBg.AbsoluteSize
-            local pct = math.clamp((i.Position.X - abs.X) / sz.X, 0, 1)
-            val = math.round(min + (max - min) * pct)
-            fill.Size = UDim2.new(pct, 0, 1, 0)
-            knob.Position = UDim2.new(pct, 0, 0.5, 0)
-            valLbl.Text = tostring(val)
-            pcall(cb, val)
-        end
-    end)
-    return {Get = function() return val end}
-end
-
-local function dropdown(parent, text, options, cb)
-    cb = cb or function() end
-    local selected = options[1] or "None"
-    local open = false
-    local wrapper = Instance.new("Frame", parent)
-    wrapper.Name = "DD_" .. text
-    wrapper.Size = UDim2.new(1, 0, 0, 36)
-    wrapper.BackgroundTransparency = 1
-    wrapper.AutomaticSize = Enum.AutomaticSize.Y
-    wrapper.ZIndex = 12
-    wrapper.ClipsDescendants = false
-    local f = Instance.new("Frame", wrapper)
-    f.Size = UDim2.new(1, 0, 0, 36)
-    f.BackgroundColor3 = CARD
-    f.ZIndex = 12
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 7)
-    local stroke = Instance.new("UIStroke", f)
-    stroke.Color = LINE
-    stroke.Thickness = 1
-    local lbl = Instance.new("TextLabel", f)
-    lbl.Size = UDim2.new(1, -100, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 13
-    lbl.TextColor3 = TEXT
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.ZIndex = 13
-    local selBtn = Instance.new("TextButton", f)
-    selBtn.Size = UDim2.new(0, 86, 0, 22)
-    selBtn.Position = UDim2.new(1, -94, 0.5, -11)
-    selBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 100)
-    selBtn.Text = selected .. " v"
-    selBtn.Font = Enum.Font.GothamSemibold
-    selBtn.TextSize = 11
-    selBtn.TextColor3 = ACCENT2
-    selBtn.AutoButtonColor = false
-    selBtn.ZIndex = 13
-    Instance.new("UICorner", selBtn).CornerRadius = UDim.new(0, 5)
-    local list = Instance.new("Frame", wrapper)
-    list.Size = UDim2.new(1, 0, 0, 0)
-    list.Position = UDim2.new(0, 0, 0, 38)
-    list.BackgroundColor3 = CARD
-    list.ZIndex = 30
-    list.ClipsDescendants = true
-    Instance.new("UICorner", list).CornerRadius = UDim.new(0, 7)
-    local ls = Instance.new("UIStroke", list)
-    ls.Color = ACCENT
-    ls.Thickness = 1
-    ls.Transparency = 0.5
-    local listLayout = Instance.new("UIListLayout", list)
-    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    for _, opt in ipairs(options) do
-        local ob = Instance.new("TextButton", list)
-        ob.Size = UDim2.new(1, 0, 0, 28)
-        ob.BackgroundTransparency = 1
-        ob.Text = opt
-        ob.Font = Enum.Font.Gotham
-        ob.TextSize = 12
-        ob.TextColor3 = opt == selected and WHITE or TEXT
-        ob.ZIndex = 31
-        ob.AutoButtonColor = false
-        ob.MouseEnter:Connect(function() tw(ob, 0.1, {TextColor3 = WHITE}) end)
-        ob.MouseLeave:Connect(function() tw(ob, 0.1, {TextColor3 = opt == selected and WHITE or TEXT}) end)
-        ob.MouseButton1Click:Connect(function()
-            selected = opt
-            selBtn.Text = opt .. " v"
-            list:TweenSize(UDim2.new(1, 0, 0, 0), "In", "Quart", 0.15, true)
-            open = false
-            tw(stroke, 0.12, {Color = LINE})
-            pcall(cb, selected)
-        end)
-    end
-    selBtn.MouseButton1Click:Connect(function()
-        open = not open
-        local h = open and (#options * 28) or 0
-        list:TweenSize(UDim2.new(1, 0, 0, h), open and "Out" or "In", "Quart", 0.18, true)
-        tw(stroke, 0.12, {Color = open and ACCENT or LINE})
-    end)
-    return {Get = function() return selected end}
-end
-
-local function label(parent, text)
-    local lbl = Instance.new("TextLabel", parent)
-    lbl.Size = UDim2.new(1, 0, 0, 24)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 12
-    lbl.TextColor3 = MUTED
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.ZIndex = 12
-    Instance.new("UIPadding", lbl).PaddingLeft = UDim.new(0, 4)
+local function sectionTitle(parent, text, order)
+    local lbl = label(parent, {
+        Size=UDim2.new(1,0,0,26),
+        Text=text, TextColor3=C.ice,
+        Font=Enum.Font.GothamBold, TextSize=9,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        LayoutOrder=order, ZIndex=16,
+    })
+    inset(lbl, 0,0,8,0)
     return lbl
 end
 
-local function divider(parent)
-    local d = Instance.new("Frame", parent)
-    d.Size = UDim2.new(1, 0, 0, 1)
-    d.BackgroundColor3 = LINE
-    d.ZIndex = 12
-    return d
+local function scriptIcon(data)
+    local icons = {
+        Combat="⚔", Movement="↑", Teleport="⊛", Utility="⚙", Visual="◉"
+    }
+    if data.New then return "★" end
+    return icons[data.Cat] or "▶"
 end
 
--- =============================================================
--- [ OPEN / CLOSE ]
--- =============================================================
-local isOpen = true
-local function openWin()
-    isOpen = true
-    Main.Visible = true
-    Main:TweenSize(savedSize, "Out", "Back", 0.3, true)
+local function actionCard(parent, title, desc, fn, col, order)
+    local item = button(parent, {
+        Size=UDim2.new(1,0,0,56),
+        BackgroundColor3=C.card, LayoutOrder=order, ZIndex=16,
+    })
+    round(item, 13)
+    outline(item, C.line, 1)
+    fillGradient(item, Color3.fromRGB(25,13,15), C.card, 135)
+    local accent = frame(item, {
+        Size=UDim2.fromOffset(3,32), Position=UDim2.fromOffset(10,12),
+        BackgroundColor3=col or C.electric, ZIndex=17,
+    })
+    round(accent, 2)
+    label(item, {
+        Size=UDim2.new(1,-42,0,20), Position=UDim2.fromOffset(26,8),
+        Text=title, TextColor3=C.white,
+        Font=Enum.Font.GothamBold, TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
+    })
+    label(item, {
+        Size=UDim2.new(1,-42,0,16), Position=UDim2.fromOffset(26,30),
+        Text=desc, TextColor3=C.muted,
+        Font=Enum.Font.Gotham, TextSize=9,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
+    })
+    label(item, {
+        Size=UDim2.fromOffset(22,56), Position=UDim2.new(1,-28,0,0),
+        Text="›", TextColor3=col or C.electric,
+        Font=Enum.Font.GothamBold, TextSize=18, ZIndex=17,
+    })
+    wire(item, C.card, C.cardHot)
+    if fn then
+        item.MouseButton1Click:Connect(function()
+            play("tap")
+            fn()
+        end)
+    end
+    return item
 end
-local function closeWin()
-    isOpen = false
-    Main:TweenSize(UDim2.new(0, 0, 0, 0), "In", "Back", 0.25, true, function()
-        if not isOpen then Main.Visible = false end
+
+local function statBox(parent, val, cap, col, order)
+    local item = frame(parent, {
+        Size=UDim2.new(0.333,-9,0,76),
+        BackgroundColor3=C.card, LayoutOrder=order, ZIndex=16,
+    })
+    round(item, 14)
+    outline(item, C.line, 1)
+    fillGradient(item, Color3.fromRGB(25,13,15), C.card, 135)
+    label(item, {
+        Size=UDim2.new(1,-18,0,30), Position=UDim2.fromOffset(10,10),
+        Text=val, TextColor3=col or C.white,
+        Font=Enum.Font.GothamBold, TextSize=22,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
+    })
+    label(item, {
+        Size=UDim2.new(1,-18,0,18), Position=UDim2.fromOffset(10,46),
+        Text=cap, TextColor3=C.muted,
+        Font=Enum.Font.GothamSemibold, TextSize=8,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
+    })
+    return item
+end
+
+local function scriptCard(parent, data, order)
+    local item = button(parent, {
+        Size=UDim2.new(1,0,0,78),
+        BackgroundColor3=C.card, LayoutOrder=order, ZIndex=16,
+    })
+    round(item, 14)
+    local itemOutline = outline(
+        item,
+        data.Rainbow and Color3.fromRGB(255, 0, 0) or (data.New and C.red or C.line),
+        data.Rainbow and 2 or (data.New and 1.3 or 1)
+    )
+    if data.Rainbow then
+        table.insert(RGBTargets, itemOutline)
+    end
+    fillGradient(item, Color3.fromRGB(30,15,18), C.card, 135)
+
+    if data.Rainbow then
+        glow(item, 150, C.electric, 0.80, UDim2.new(0,-30,0.5,-75))
+    elseif data.New then
+        glow(item, 120, C.red, 0.88, UDim2.new(0,-20,0.5,-60))
+    end
+
+    local iconF = frame(item, {
+        Size=UDim2.fromOffset(50,50), Position=UDim2.fromOffset(14,14),
+        BackgroundColor3=data.Rainbow and Color3.fromRGB(54,23,22) or (data.New and Color3.fromRGB(85,28,20) or Color3.fromRGB(30,15,18)),
+        ZIndex=17,
+    })
+    round(iconF, 14)
+    fillGradient(iconF, data.Rainbow and C.electric or (data.New and C.red or C.electric), C.royal, 135)
+    label(iconF, {
+        Size=UDim2.fromScale(1,1), Text=scriptIcon(data),
+        TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=18, ZIndex=18,
+    })
+
+    label(item, {
+        Size=UDim2.new(1,-170,0,22), Position=UDim2.fromOffset(78,14),
+        Text=data.N, TextColor3=C.white,
+        Font=Enum.Font.GothamBold, TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=17,
+    })
+    label(item, {
+        Size=UDim2.new(1,-170,0,18), Position=UDim2.fromOffset(78,40),
+        Text=(data.Cat or "Universal"):upper().."   /   "..(has(Persist.recent,data.N) and "RECENT" or "CATALOG PREVIEW"),
+        TextColor3=data.Rainbow and C.electric or (data.New and C.red or C.muted),
+        Font=Enum.Font.GothamSemibold, TextSize=9,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
+    })
+
+    -- exec count badge
+    local ec = Persist.totalExecs[data.N] or 0
+    if ec > 0 then
+        label(item, {
+            Size=UDim2.fromOffset(70,16), Position=UDim2.new(1,-92,0.5,-24),
+            Text="▶ "..ec.."x", TextColor3=C.green,
+            Font=Enum.Font.GothamSemibold, TextSize=9, ZIndex=17,
+        })
+    end
+
+    if data.New then
+        local badge = frame(item, {
+            Size=UDim2.fromOffset(38,18), Position=UDim2.new(1,-92,0.5,2),
+            BackgroundColor3=C.red, ZIndex=18,
+        })
+        round(badge, 7)
+        label(badge, {
+            Size=UDim2.fromScale(1,1), Text="NEW",
+            TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=8, ZIndex=19,
+        })
+    end
+
+    label(item, {
+        Size=UDim2.fromOffset(20,78), Position=UDim2.new(1,-28,0,0),
+        Text="›", TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=18, ZIndex=17,
+    })
+
+    wire(item, C.card, C.cardHot)
+    item.MouseButton1Click:Connect(function()
+        play("tap")
+        openDetail(data)
+    end)
+    return item
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PAGE: HOME
+-- ════════════════════════════════════════════════════════════════════════════
+local function buildHome()
+    PageTitle.Text = "Welcome back, "..LP.Name
+    PageSub.Text   = "Your LP10 command center — "..SCRIPT_COUNT.." catalog entries ready."
+
+    -- Hero banner
+    local hero = frame(Body, {
+        Size=UDim2.new(1,0,0,138),
+        BackgroundColor3=C.card, LayoutOrder=1, ZIndex=16,
+    })
+    round(hero, 18)
+    outline(hero, C.line, 1)
+    fillGradient(hero, Color3.fromRGB(120,45,16), Color3.fromRGB(25,12,16), 0)
+    glow(hero, 220, C.electric, 0.82, UDim2.new(1,-200,0.5,-110))
+
+    label(hero, {
+        Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,14),
+        Text="LP10  /  HALLOWEEN UNIVERSAL", TextColor3=C.ice,
+        Font=Enum.Font.GothamBold, TextSize=9, ZIndex=17,
+    })
+    label(hero, {
+        Size=UDim2.new(0.7,0,0,40), Position=UDim2.fromOffset(16,34),
+        Text="Ready for your\nnext experience.",
+        TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=21,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        TextWrapped=true, ZIndex=17,
+    })
+    label(hero, {
+        Size=UDim2.new(0.65,0,0,18), Position=UDim2.fromOffset(16,100),
+        Text=SCRIPT_COUNT.." catalogue entries  /  UI PREVIEW  /  "..GAME_NAME,
+        TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=10, ZIndex=17,
+    })
+    local heroBtn = button(hero, {
+        Size=UDim2.fromOffset(132,38), Position=UDim2.new(1,-150,0.5,-19),
+        BackgroundColor3=C.electric, Text="BROWSE SCRIPTS",
+        TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=9, ZIndex=18,
+    })
+    round(heroBtn, 11)
+    wire(heroBtn, C.electric, C.royal)
+    heroBtn.MouseButton1Click:Connect(function()
+        play("tap")
+        local changePage_fn = _G.LP10ChangePage
+        if changePage_fn then changePage_fn("Scripts") end
+    end)
+
+    -- Stat row
+    local statsRow = frame(Body, {
+        Size=UDim2.new(1,0,0,76),
+        BackgroundTransparency=1, LayoutOrder=2, ZIndex=16,
+    })
+    listLayout(statsRow, Enum.FillDirection.Horizontal, 12)
+    statBox(statsRow, tostring(SCRIPT_COUNT),            "CATALOG ENTRIES", C.ice,    1)
+    statBox(statsRow, tostring(#Persist.favorites),      "FAVORITES",         C.yellow, 2)
+    statBox(statsRow, "OFF", "EXECUTION DISABLED", C.muted, 3)
+
+    sectionTitle(Body, "QUICK ACTIONS", 3)
+    local quick = frame(Body, {
+        Size=UDim2.new(1,0,0,0),
+        BackgroundTransparency=1,
+        LayoutOrder=4, ZIndex=16,
+        AutomaticSize=Enum.AutomaticSize.Y,
+    })
+    new("UIGridLayout", quick, {
+        CellSize=UDim2.new(0.5,-6,0,56),
+        CellPadding=UDim2.fromOffset(12,10),
+        SortOrder=Enum.SortOrder.LayoutOrder,
+    })
+
+    local function qa(t, d, fn, col, ord)
+        local b = button(quick, {
+            Size=UDim2.new(0.5,-6,0,56),
+            BackgroundColor3=C.card, LayoutOrder=ord, ZIndex=17,
+        })
+        round(b, 13)
+        outline(b, C.line, 1)
+        local ac = frame(b, {Size=UDim2.fromOffset(3,28), Position=UDim2.fromOffset(10,14), BackgroundColor3=col or C.electric, ZIndex=18})
+        round(ac, 2)
+        label(b, {Size=UDim2.new(1,-40,0,19), Position=UDim2.fromOffset(26,6), Text=t, TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=11, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=18})
+        label(b, {Size=UDim2.new(1,-40,0,15), Position=UDim2.fromOffset(26,27), Text=d, TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=8, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=18})
+        wire(b, C.card, C.cardHot)
+        b.MouseButton1Click:Connect(function() play("tap"); if fn then fn() end end)
+        return b
+    end
+
+    local cP = _G.LP10ChangePage
+    qa("Browse Catalog",   "Explore all preview entries",       function() if cP then cP("Scripts") end end,   C.electric, 1)
+    qa("Last Entry",       "Script execution is disabled in this preview.", function()
+        toast("Preview only", "Open a catalogue card to inspect it.", C.orange)
+    end, C.green, 2)
+    qa("Random Entry",     "Preview a random catalogue entry",        function() openDetail(Scripts[math.random(1,#Scripts)]) end, C.violet, 3)
+    qa("Settings",         "Tune the experience",            function() if cP then cP("Settings") end end,  C.yellow, 4)
+    qa("Refresh View",     "Rebuild the library",            function()
+        local r = _G.LP10Refresh; if r then r() end
+        toast("Refreshed",SCRIPT_COUNT.." catalog entries loaded.",C.electric)
+    end, C.electric, 5)
+    qa("Favorites",        "Your saved scripts",             function() if cP then cP("Favorites") end end, C.yellow, 6)
+    qa("Pinned",           "Your pinned scripts",            function() if cP then cP("Pinned") end end,    C.ice,    7)
+    qa("Recent",           "Recently viewed",              function() if cP then cP("Recent") end end,    C.green,  8)
+    qa("GitHub link",      "Clipboard actions are disabled",      function() setClip("https://github.com/LPOLVO/LP10"); toast("Preview only","Clipboard actions are disabled in this preview.",C.orange) end, C.electric, 9)
+    qa("Scroll to Top",    "Jump to the beginning",          function() Body.CanvasPosition=Vector2.new(0,0) end, C.ice, 10)
+
+    sectionTitle(Body, "RECENTLY VIEWED", 5)
+    if #Persist.recent == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,44), LayoutOrder=6,
+            Text="Execution history is not available in this UI-only preview.",
+            TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
+        })
+    else
+        for i = 1, math.min(3, #Persist.recent) do
+            for _, d in ipairs(Scripts) do
+                if d.N == Persist.recent[i] then
+                    scriptCard(Body, d, 5 + i)
+                    break
+                end
+            end
+        end
+    end
+
+    sectionTitle(Body, "PREVIEW ACTIVITY", 9)
+    local popular = popularScripts(3)
+    if #popular == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,44), LayoutOrder=10,
+            Text="Preview-only mode does not track script usage.",
+            TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
+        })
+    else
+        for i, d in ipairs(popular) do
+            scriptCard(Body, d, 10 + i)
+        end
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PAGE: SCRIPT LIBRARY
+-- ════════════════════════════════════════════════════════════════════════════
+local function listForPage(page)
+    local result = {}
+    if page == "Favorites" then
+        for _, n in ipairs(Persist.favorites) do
+            for _, d in ipairs(Scripts) do if d.N == n then table.insert(result,d) end end
+        end
+    elseif page == "Pinned" then
+        for _, n in ipairs(Persist.pinned) do
+            for _, d in ipairs(Scripts) do if d.N == n then table.insert(result,d) end end
+        end
+    elseif page == "Recent" then
+        for _, n in ipairs(Persist.recent) do
+            for _, d in ipairs(Scripts) do if d.N == n then table.insert(result,d) end end
+        end
+    elseif page == "Popular" then
+        result = popularScripts()
+    else
+        result = Scripts
+    end
+    return result
+end
+
+local function buildLibrary(page)
+    local titles = {
+        Scripts="Script Library",
+        Favorites="Favorites",
+        Pinned="Pinned Scripts",
+        Recent="Recently Viewed",
+        Popular="Most Used Scripts",
+    }
+    PageTitle.Text = titles[page] or "Script Library"
+    PageSub.Text   = page=="Scripts" and "Tap a script to inspect it before executing."
+        or page=="Popular" and "Ranked by the number of times you have used each script."
+        or "Your curated LP10 collection."
+
+    local list  = listForPage(page)
+    local query = (SearchBox.Text or ""):lower()
+    local visible = 0
+
+    for _, data in ipairs(list) do
+        -- category filter
+        local catMatch = ActiveCat == "All"
+            or (ActiveCat == "New" and data.New)
+            or (data.Cat == ActiveCat)
+        -- search filter
+        local searchMatch = query == "" or data.N:lower():find(query, 1, true)
+        if catMatch and searchMatch then
+            visible = visible + 1
+            scriptCard(Body, data, visible)
+        end
+    end
+
+    if visible == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,110), LayoutOrder=1,
+            Text=query~="" and ('No matches for "'..SearchBox.Text..'"') or
+                 "Nothing here yet.\nPreview the catalog to fill this collection.",
+            TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=13,
+            TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=16,
+        })
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PAGE: GAMES
+-- ════════════════════════════════════════════════════════════════════════════
+local function buildGames()
+    PageTitle.Text = "Recent Games"
+    PageSub.Text   = "Experiences you have recently used LP10 in."
+    if #Persist.recentGames == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,110), LayoutOrder=1,
+            Text="No recent games yet.\nYour experience history will appear here.",
+            TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=13,
+            TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=16,
+        })
+        return
+    end
+    for i, name in ipairs(Persist.recentGames) do
+        actionCard(Body, name, i==1 and "CURRENT EXPERIENCE" or "RECENT EXPERIENCE", nil, i==1 and C.green or C.electric, i)
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PAGE: CHANGELOG
+-- ════════════════════════════════════════════════════════════════════════════
+local function buildChangelog()
+    PageTitle.Text = "Changelog"
+    PageSub.Text   = "What's new in LP10 Halloween Universal."
+    local entries = {
+        {"HALLOWEEN PALETTE", "Pumpkin orange, ember red, warm text, and midnight surfaces.", "NEW", C.orange},
+        {"UI-ONLY CATALOG", "All 42 names remain visible as non-runnable preview entries.", "SAFE", C.green},
+        {"EXECUTION DISABLED", "No payload source, external loader, or game automation is included.", "SAFE", C.yellow},
+        {"SESSION FAVORITES", "Favorites and pins remain in memory while this UI is open.", "INFO", C.violet},
+        {"SEASONAL AMBIENCE", "Floating ember colors, Halloween labels, and warm glow effects.", "NEW", C.ice},
+        {"SEARCH + FILTER", "Browse the catalogue by name and category.", "INFO", C.electric},
+        {"MOBILE LAYOUT", "The interface adapts to narrow viewports.", "INFO", C.green},
+    }
+    for i, e in ipairs(entries) do
+        local item = actionCard(Body, e[1], e[2], nil, e[4], i)
+        item.Size = UDim2.new(1,0,0,72)
+        label(item, {
+            Size=UDim2.fromOffset(68,18), Position=UDim2.new(1,-76,0,8),
+            Text=e[3], TextColor3=e[4], Font=Enum.Font.GothamBold, TextSize=8, ZIndex=18,
+        })
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PAGE: SETTINGS
+-- ════════════════════════════════════════════════════════════════════════════
+local function makeToggle(parent, title, desc, key, order)
+    local row = frame(parent, {
+        Size=UDim2.new(1,0,0,62),
+        BackgroundColor3=C.card, LayoutOrder=order, ZIndex=16,
+    })
+    round(row, 13)
+    outline(row, C.line, 1)
+    label(row, {Size=UDim2.new(1,-82,0,20), Position=UDim2.fromOffset(14,9),  Text=title, TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=11, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    label(row, {Size=UDim2.new(1,-82,0,16), Position=UDim2.fromOffset(14,31), Text=desc,  TextColor3=C.muted, Font=Enum.Font.Gotham,     TextSize=9,  TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    local track = frame(row, {Size=UDim2.fromOffset(46,24), Position=UDim2.new(1,-60,0.5,-12), BackgroundColor3=Settings[key] and C.royal or C.line, ZIndex=17})
+    round(track, 12)
+    local knob = frame(track, {Size=UDim2.fromOffset(18,18), Position=Settings[key] and UDim2.new(1,-21,0.5,-9) or UDim2.fromOffset(3,3), BackgroundColor3=C.white, ZIndex=18})
+    round(knob, 9)
+    local hit = button(row, {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, Text="", ZIndex=19})
+    hit.MouseButton1Click:Connect(function()
+        play("tap")
+        Settings[key] = not Settings[key]
+        tw(track, 0.2, {BackgroundColor3=Settings[key] and C.royal or C.line})
+        spring(knob, 0.25, {Position=Settings[key] and UDim2.new(1,-21,0.5,-9) or UDim2.fromOffset(3,3)})
+        if key == "performance" or key == "reduceMotion" then
+            Settings.particles = not Settings.performance and not Settings.reduceMotion
+        end
     end)
 end
 
-CloseBtn.MouseButton1Click:Connect(closeWin)
-ToggleBtn.MouseButton1Click:Connect(function()
-    if isOpen then closeWin() else openWin() end
+local function buildSettings()
+    PageTitle.Text = "Settings"
+    PageSub.Text   = "Tune the Halloween preview on your device."
+    sectionTitle(Body, "APPEARANCE & MOTION", 1)
+    makeToggle(Body, "Reduce motion",     "Replace animations with quick fades.",          "reduceMotion", 2)
+    makeToggle(Body, "Pumpkin glow",     "Warm pumpkin-colored text glow.",          "glow",         3)
+    makeToggle(Body, "Floating embers",  "Floating ember-colored particles.",       "particles",    4)
+    makeToggle(Body, "Background blur",   "Soften the background behind this interface.",               "blur",         5)
+    makeToggle(Body, "UI sounds",         "Tap and navigation audio feedback.",        "sounds",       6)
+    makeToggle(Body, "Performance mode",  "Auto-disable heavy effects. Saves FPS.",         "performance",  7)
+    makeToggle(Body, "Compact mode",      "Reduce padding for small screens.",              "compactMode",  8)
+    sectionTitle(Body, "ACTIONS", 9)
+    actionCard(Body, "Clear favorites",    "Remove all your favorited scripts",          function() Persist.favorites = {}; toast("Cleared","All favorites removed.",C.yellow) end, C.yellow, 10)
+    actionCard(Body, "Clear pinned",       "Remove all your pinned scripts",             function() Persist.pinned = {}; toast("Cleared","All pins removed.",C.ice) end, C.ice, 11)
+    actionCard(Body, "Clear recent",       "Clear preview history",                    function() Persist.recent = {}; saveUsageFile(); toast("Cleared","Recent history cleared.",C.green) end, C.green, 12)
+    actionCard(Body, "Reset preview counts",  "Reset in-memory preview counters",       function() Persist.totalExecs = {}; Persist.execCount = 0; Persist.lastUsed = {}; saveUsageFile(); toast("Reset","Preview counters cleared.",C.muted) end, C.muted, 13)
+    actionCard(Body, "Preview mode", "Favorites and pins are session-only; files are not written.", nil, C.orange, 14)
+    sectionTitle(Body, "INFO", 15)
+    actionCard(Body, "GitHub link", "Clipboard actions are disabled in this preview.", function() toast("Preview only","Clipboard actions are disabled in this preview.",C.orange) end, C.electric, 16)
+    actionCard(Body, "Instagram link",     "Clipboard actions are disabled",           function() setClip("https://www.instagram.com/4me.h4mz4_?igsh=MW9sa20yejExaGo5Nw=="); toast("Preview only","Clipboard actions are disabled in this preview.",C.orange) end, C.pink, 17)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PAGE: ABOUT
+-- ════════════════════════════════════════════════════════════════════════════
+local function buildAbout()
+    PageTitle.Text = "About LP10"
+    PageSub.Text   = "Halloween-themed, UI-only catalogue preview."
+    local about = frame(Body, {
+        Size=UDim2.new(1,0,0,200),
+        BackgroundColor3=C.card, LayoutOrder=1, ZIndex=16,
+    })
+    round(about, 18)
+    outline(about, C.line, 1)
+    fillGradient(about, Color3.fromRGB(45,20,22), C.card, 135)
+    glow(about, 180, C.electric, 0.82, UDim2.new(1,-160,0.5,-90))
+    label(about, {Size=UDim2.new(1,-30,0,32), Position=UDim2.fromOffset(16,14), Text="LP10 HALLOWEEN", TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=22, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    label(about, {Size=UDim2.new(1,-30,0,72), Position=UDim2.fromOffset(16,52), Text="A Halloween-themed, UI-only catalog preview for the LP10 collection. It displays entries and session-only favorites; it does not include or run scripts. Full-screen ember shell with search, categories, favorites, pins, and session-only preferences. No script code or game automation is included.", TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=11, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    label(about, {Size=UDim2.new(1,-30,0,20), Position=UDim2.fromOffset(16,136), Text="HALLOWEEN UI EDITION  /  v8  /  "..SCRIPT_COUNT.." CATALOG ENTRIES  /  "..PREVIEW_MODE, TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=9, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    label(about, {Size=UDim2.new(1,-30,0,20), Position=UDim2.fromOffset(16,158), Text="BY @LPOLVO (HAMZA)  /  instagram.com/4me.h4mz4_", TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    actionCard(Body, "Instagram",  "External links are not opened in this UI preview.", function() toast("Preview only","External links are not opened here.",C.orange) end, C.pink, 2)
+    actionCard(Body, "GitHub",     "External links are not opened in this UI preview.", function() toast("Preview only","External links are not opened here.",C.orange) end, C.electric, 3)
+    actionCard(Body, "Changelog",  "See what's new in v8",          function() local cP=_G.LP10ChangePage; if cP then cP("Changelog") end end, C.violet, 4)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- REFRESH & NAVIGATION
+-- ════════════════════════════════════════════════════════════════════════════
+local CurrentPage = Persist.page or "Home"
+
+local function refresh()
+    wipeBody()
+    if     CurrentPage == "Home"      then buildHome()
+    elseif CurrentPage == "Games"     then buildGames()
+    elseif CurrentPage == "Changelog" then buildChangelog()
+    elseif CurrentPage == "Settings"  then buildSettings()
+    elseif CurrentPage == "About"     then buildAbout()
+    else                                   buildLibrary(CurrentPage)
+    end
+    -- Update nav button states
+    for id, btn in pairs(NavButtons) do
+        local active = id == CurrentPage
+        btn.BackgroundColor3 = active and Color3.fromRGB(150,55,20) or Color3.fromRGB(11,6,8)
+        for _, ch in ipairs(btn:GetChildren()) do
+            if ch:IsA("TextLabel") then
+                ch.TextColor3 = active and C.white or C.text
+            end
+        end
+    end
+end
+
+local function changePage(id)
+    CurrentPage = id
+    Persist.page = id
+    SearchBox.Text = ""
+    SearchClear.Visible = false
+    Body.CanvasPosition = Vector2.new(0,0)
+    play("slide")
+    refresh()
+end
+
+-- Expose to global for cross-scope calls
+_G.LP10ChangePage = changePage
+_G.LP10Refresh    = refresh
+
+-- Wire nav buttons
+for _, pg in ipairs(Pages) do
+    NavButtons[pg.id].MouseButton1Click:Connect(function()
+        changePage(pg.id)
+    end)
+end
+AboutBtn.MouseButton1Click:Connect(function() changePage("About") end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- RESTORE ORB
+-- ════════════════════════════════════════════════════════════════════════════
+local RestoreOrb = button(GUI, {
+    Size=UDim2.fromOffset(60,60), Position=UDim2.new(0,16,0.5,-30),
+    BackgroundColor3=C.royal, Text="LP",
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=17,
+    Visible=false, ZIndex=80,
+})
+round(RestoreOrb, 30)
+outline(RestoreOrb, C.ice, 1.5)
+fillGradient(RestoreOrb, C.electric, C.royal, 135)
+glow(RestoreOrb, 130, C.electric, 0.74, UDim2.new(0.5,-65,0.5,-65))
+wire(RestoreOrb, C.royal, C.electric)
+
+RestoreOrb.MouseButton1Click:Connect(function()
+    RestoreOrb.Visible = false
+    Main.Visible = true
+    Main.Size     = UDim2.fromScale(0,0)
+    Main.Position = UDim2.fromScale(0.5,0.5)
+    if Settings.blur then Blur.Enabled=true; tw(Blur,0.36,{Size=12}) end
+    spring(Main, 0.44, {Size=UDim2.fromScale(1,1), Position=UDim2.fromScale(0,0)})
+    toast("LP10 Restored","Welcome back.",C.electric)
 end)
 
--- =============================================================
--- [ PUBLIC API ]
--- =============================================================
-local LP10 = {}
+-- ════════════════════════════════════════════════════════════════════════════
+-- RESPONSIVE LAYOUT
+-- ════════════════════════════════════════════════════════════════════════════
+local function applyLayout()
+    local vp = Cam.ViewportSize
+    local narrow = vp.X < 660
+    Side.Visible          = not narrow
+    Content.Position      = narrow and UDim2.fromOffset(0,62) or UDim2.fromOffset(160,62)
+    Content.Size          = narrow and UDim2.new(1,0,1,-62) or UDim2.new(1,-160,1,-62)
+    BrandTitle.Visible    = not narrow
+    BrandSub.Visible      = not narrow
+    LiveStats.Visible     = vp.X > 680
+    ClockLabel.Visible    = vp.X > 680
+end
 
-LP10.Tab      = newTab
-LP10.Section  = section
-LP10.Button   = button
-LP10.Toggle   = toggle
-LP10.Slider   = slider
-LP10.Dropdown = dropdown
-LP10.Label    = label
-LP10.Divider  = divider
-LP10.Notify   = notify
-LP10.Open     = openWin
-LP10.Close    = closeWin
-LP10.Colors   = {ACCENT=ACCENT, GREEN=GREEN, RED=RED, GOLD=GOLD, WHITE=WHITE}
+Cam:GetPropertyChangedSignal("ViewportSize"):Connect(applyLayout)
 
--- =============================================================
--- [ BOOT ]
--- =============================================================
-task.delay(0.8, function()
-    notify("LP10 HUB", "Purple v4 ready!", ACCENT, 4)
+-- ════════════════════════════════════════════════════════════════════════════
+-- HEADER BUTTON ACTIONS
+-- ════════════════════════════════════════════════════════════════════════════
+MinBtn.MouseButton1Click:Connect(function()
+    play("close")
+    Main.Visible = false
+    RestoreOrb.Visible = true
+    if Settings.blur then
+        tw(Blur,0.28,{Size=0},nil,Enum.EasingDirection.In)
+        task.delay(0.32, function() if Blur then Blur.Enabled=false end end)
+    end
+    toast("LP10 Minimized","Tap the floating orb to restore.",C.electric)
 end)
 
-print("[LP10 HUB] Purple v4 loaded. Use LP10:Tab(), LP10:Button(), LP10:Toggle(), LP10:Slider()")
+ModeBtn.MouseButton1Click:Connect(function()
+    play("tap")
+    applyLayout()
+    toast("Full-screen locked","LP10 is edge-to-edge.",C.electric)
+end)
 
-return LP10
+SettingsBtn.MouseButton1Click:Connect(function()
+    changePage("Settings")
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    play("close")
+    pcall(function()
+        if Blur then Blur:Destroy() end
+        if GUI  then GUI:Destroy()  end
+    end)
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SEARCH WIRING
+-- ════════════════════════════════════════════════════════════════════════════
+SearchBox.Focused:Connect(function()
+    tw(SearchWrap, 0.18, {BackgroundColor3=C.cardHot})
+end)
+SearchBox.FocusLost:Connect(function()
+    tw(SearchWrap, 0.18, {BackgroundColor3=C.input})
+end)
+SearchClear.MouseButton1Click:Connect(function()
+    SearchBox.Text = ""
+    SearchClear.Visible = false
+    refresh()
+end)
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    SearchClear.Visible = SearchBox.Text ~= ""
+    if CurrentPage == "Scripts" or CurrentPage == "Favorites"
+    or CurrentPage == "Pinned"  or CurrentPage == "Recent"
+    or CurrentPage == "Popular" then
+        wipeBody()
+        buildLibrary(CurrentPage)
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIVE PERFORMANCE HUD (FPS / PING / MEM)
+-- ════════════════════════════════════════════════════════════════════════════
+local _fps, _frames, _elapsed, _ping = 60, 0, 0, 0
+RunService.Heartbeat:Connect(function(dt)
+    _frames  = _frames  + 1
+    _elapsed = _elapsed + dt
+    local interval = Settings.performance and 1 or 0.5
+    if _elapsed >= interval then
+        _fps             = math.floor(_frames / _elapsed)
+        _frames, _elapsed = 0, 0
+        pcall(function()
+            _ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
+        end)
+        local mem = 0
+        pcall(function()
+            mem = math.floor(game:GetService("Stats"):GetMemoryUsageMbForTag(Enum.DeveloperMemoryTag.Gui))
+        end)
+        LiveStats.Text = "FPS ".._fps.."    PING "..math.floor(_ping).."ms    MEM "..mem.."MB"
+        LiveStats.TextColor3 = _fps>=55 and C.green or (_fps>=30 and C.yellow or C.red)
+        ClockLabel.Text = GAME_NAME.."  /  "..os.date("%H:%M:%S")
+        -- Auto performance guard
+        if _fps < 30 then Settings.particles = false end
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ELECTRIC GLOW ANIMATION
+-- ════════════════════════════════════════════════════════════════════════════
+local ePhase, eAcc = 0, 0
+RunService.Heartbeat:Connect(function(dt)
+    ePhase = ePhase + dt * (Settings.reduceMotion and 1.5 or 3.8)
+    eAcc   = eAcc   + dt
+    if eAcc < (Settings.performance and 0.14 or 0.06) then return end
+    eAcc = 0
+    local pulse = 0.40 + ((math.sin(ePhase)+1)*0.5)*0.30
+    for i = #ElectricTargets, 1, -1 do
+        local t = ElectricTargets[i]
+        if t and t.Parent then
+            t.TextStrokeColor3        = Settings.glow and C.electric or t.TextColor3
+            t.TextStrokeTransparency  = Settings.glow and pulse or 1
+        else
+            table.remove(ElectricTargets, i)
+        end
+    end
+end)
+
+-- RGB border animation for featured scripts
+RunService.Heartbeat:Connect(function()
+    for i = #RGBTargets, 1, -1 do
+        local stroke = RGBTargets[i]
+        if stroke and stroke.Parent then
+            stroke.Color = Color3.fromHSV((ePhase * 0.12 + i * 0.08) % 1, 0.92, 1)
+        else
+            table.remove(RGBTargets, i)
+        end
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- LAUNCH SEQUENCE (HALLOWEEN BOOT SCREEN)
+-- ════════════════════════════════════════════════════════════════════════════
+local LaunchCurtain = frame(GUI, {
+    Name             = "LP10LaunchCurtain",
+    Size             = UDim2.fromScale(1,1),
+    Position         = UDim2.fromScale(0,0),
+    BackgroundColor3 = C.bg,
+    ZIndex           = 200,
+})
+
+-- Halloween glow on launch curtain
+local LGlow1 = new("ImageLabel", LaunchCurtain, {
+    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(255,117,24), ImageTransparency=0.76,
+    BackgroundTransparency=1, Size=UDim2.fromOffset(480,480),
+    Position=UDim2.new(0.5,-240,0.5,-240), ZIndex=201,
+})
+local LGlow2 = new("ImageLabel", LaunchCurtain, {
+    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(109,40,217), ImageTransparency=0.84,
+    BackgroundTransparency=1, Size=UDim2.fromOffset(320,320),
+    Position=UDim2.new(0.85,-160,0.85,-160), ZIndex=201,
+})
+local LGlow3 = new("ImageLabel", LaunchCurtain, {
+    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(189,119,255), ImageTransparency=0.88,
+    BackgroundTransparency=1, Size=UDim2.fromOffset(260,260),
+    Position=UDim2.new(0.15,-130,0.15,-130), ZIndex=201,
+})
+
+local LaunchCore = frame(LaunchCurtain, {
+    Size             = UDim2.fromOffset(380,188),
+    Position         = UDim2.new(0.5,-190,0.5,-94),
+    BackgroundColor3 = C.panel,
+    ZIndex           = 202,
+})
+round(LaunchCore, 24)
+outline(LaunchCore, C.line, 1.2)
+fillGradient(LaunchCore, Color3.fromRGB(40,17,20), C.panel, 135)
+
+-- LP logo on launch screen
+local LL = frame(LaunchCore, {
+    Size=UDim2.fromOffset(46,46), Position=UDim2.new(0.5,-23,0,18),
+    BackgroundColor3=C.royal, ZIndex=203,
+})
+round(LL, 14)
+fillGradient(LL, C.electric, C.royal, 135)
+glow(LL, 90, C.electric, 0.70, UDim2.new(0.5,-45,0.5,-45))
+label(LL, {
+    Size=UDim2.fromScale(1,1), Text="LP",
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=17, ZIndex=204,
+})
+
+label(LaunchCore, {
+    Size=UDim2.new(1,-32,0,26), Position=UDim2.fromOffset(16,72),
+    Text="LP10 HALLOWEEN", TextColor3=C.white,
+    Font=Enum.Font.GothamBold, TextSize=22,
+    TextXAlignment=Enum.TextXAlignment.Center, ZIndex=203,
+})
+local LaunchStatus = label(LaunchCore, {
+    Size=UDim2.new(1,-32,0,20), Position=UDim2.fromOffset(16,104),
+    Text="CONNECTING TO HALLOWEEN SHELL",
+    TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Center, ZIndex=203,
+})
+
+local LaunchTrack = frame(LaunchCore, {
+    Size=UDim2.new(1,-48,0,5), Position=UDim2.fromOffset(24,134),
+    BackgroundColor3=Color3.fromRGB(42,18,19), ZIndex=203,
+})
+round(LaunchTrack, 3)
+local LaunchFill = frame(LaunchTrack, {
+    Size=UDim2.new(0,0,1,0),
+    BackgroundColor3=C.electric, ZIndex=204,
+})
+round(LaunchFill, 3)
+fillGradient(LaunchFill, C.ice, C.electric, 0)
+
+label(LaunchCore, {
+    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,154),
+    Text=SCRIPT_COUNT.." SCRIPTS  /  HALLOWEEN EDITION  /  ULTIMATE v8",
+    TextColor3=C.muted, Font=Enum.Font.GothamBold, TextSize=8,
+    TextXAlignment=Enum.TextXAlignment.Center, ZIndex=203,
+})
+
+-- Animate launch glow orbs
+task.spawn(function()
+    while LaunchCurtain and LaunchCurtain.Parent and LaunchCurtain.Visible do
+        sine(LGlow1, 2.8, {Position=UDim2.new(0.5,-240,0.45,-240), ImageTransparency=0.80})
+        sine(LGlow2, 3.4, {Position=UDim2.new(0.80,-160,0.80,-160), ImageTransparency=0.88})
+        task.wait(2.6)
+        sine(LGlow1, 2.8, {Position=UDim2.new(0.5,-240,0.5,-240), ImageTransparency=0.76})
+        sine(LGlow2, 3.4, {Position=UDim2.new(0.85,-160,0.85,-160), ImageTransparency=0.84})
+        task.wait(2.6)
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- BOOT & OPEN
+-- ════════════════════════════════════════════════════════════════════════════
+local function openMain()
+    applyLayout()
+    Main.Visible  = true
+    Main.Size     = UDim2.fromScale(0.94,0.94)
+    Main.Position = UDim2.fromScale(0.03,0.03)
+    if Settings.blur then Blur.Enabled=true; tw(Blur,0.40,{Size=12}) end
+    play("open")
+    spring(Main, 0.50, {Size=UDim2.fromScale(1,1), Position=UDim2.fromScale(0,0)})
+
+    LaunchCurtain.Visible = true
+    LaunchCurtain.BackgroundTransparency = 0
+    LaunchCore.BackgroundTransparency   = 0
+    LaunchFill.Size = UDim2.new(0,0,1,0)
+    LaunchStatus.Text = "CONNECTING TO HALLOWEEN SHELL"
+
+    task.spawn(function()
+        tw(LaunchFill, 0.72, {Size=UDim2.fromScale(0.72,1)}, Enum.EasingStyle.Quart)
+        task.wait(0.70)
+        LaunchStatus.Text = "LOADING "..SCRIPT_COUNT.." SCRIPTS"
+        tw(LaunchFill, 0.50, {Size=UDim2.fromScale(1,1)}, Enum.EasingStyle.Quart)
+        task.wait(0.55)
+        LaunchStatus.Text = "HALLOWEEN NIGHT  /  v8"
+        task.wait(0.34)
+        tw(LaunchCore,    0.24, {BackgroundTransparency=1})
+        tw(LGlow1,        0.28, {ImageTransparency=1})
+        tw(LGlow2,        0.28, {ImageTransparency=1})
+        tw(LGlow3,        0.28, {ImageTransparency=1})
+        tw(LaunchCurtain, 0.36, {BackgroundTransparency=1})
+        task.wait(0.40)
+        if LaunchCurtain and LaunchCurtain.Parent then
+            LaunchCurtain.Visible = false
+        end
+    end)
+end
+
+-- BOOT
+applyLayout()
+CurrentPage  = Persist.page or "Home"
+refresh()
+openMain()
+
+task.delay(0.70, function()
+    toast("LP10 Halloween Universal", SCRIPT_COUNT.." catalog entries ready. Halloween night is ready.", C.electric)
+end)
+task.delay(2.40, function()
+    toast("★ New Game Added", "+1 Assassin Leveling is now at the top of Scripts.", C.orange)
+end)
+task.delay(4.60, function()
+    toast("🎃 Halloween UI", "Catalog preview only — execution is disabled.", C.orange)
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- EXTENDED SCRIPT METADATA  (descriptions, tips, tags — power-user layer)
+-- ════════════════════════════════════════════════════════════════════════════
+local ScriptMeta = {}
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- TOOLTIP OVERLAY  (shows on long-press / right-click on script cards)
+-- ════════════════════════════════════════════════════════════════════════════
+local function showTooltip(data, anchorX, anchorY)
+    local meta  = ScriptMeta[data.N] or {}
+    local tipText = "Catalog preview only. No executable payload is included."
+    local risk  = meta.risk or "N/A"
+    local riskCol = C.muted
+
+    local tip = frame(GUI, {
+        Size             = UDim2.fromOffset(268, 110),
+        Position         = UDim2.fromOffset(math.min(anchorX+10, Cam.ViewportSize.X-280), math.max(anchorY-56, 10)),
+        BackgroundColor3 = C.panel,
+        ZIndex           = 150,
+    })
+    round(tip, 14)
+    outline(tip, C.line, 1)
+    fillGradient(tip, Color3.fromRGB(25,13,15), C.panel, 135)
+
+    label(tip, {
+        Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(12,8),
+        Text=data.N, TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=11,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=151,
+        TextTruncate=Enum.TextTruncate.AtEnd,
+    })
+    label(tip, {
+        Size=UDim2.new(1,-24,0,44), Position=UDim2.fromOffset(12,28),
+        Text=tipText, TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=10,
+        TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=151,
+    })
+    local riskBadge = frame(tip, {
+        Size=UDim2.fromOffset(58,18), Position=UDim2.fromOffset(12,78),
+        BackgroundColor3=Color3.fromRGB(14,8,11), ZIndex=151,
+    })
+    round(riskBadge, 7)
+    outline(riskBadge, riskCol, 1)
+    label(riskBadge, {
+        Size=UDim2.fromScale(1,1), Text="RISK: "..risk,
+        TextColor3=riskCol, Font=Enum.Font.GothamBold, TextSize=8, ZIndex=152,
+    })
+    local testedLbl = label(tip, {
+        Size=UDim2.new(1,-80,0,18), Position=UDim2.fromOffset(80,78),
+        Text="UI-only preview · no payload included",
+        TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=8,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=151,
+    })
+
+    spring(tip, 0.22, {Size=UDim2.fromOffset(272,114)})
+    task.delay(3.5, function()
+        if tip and tip.Parent then
+            tw(tip, 0.2, {BackgroundTransparency=1})
+            task.wait(0.22)
+            pcall(function() tip:Destroy() end)
+        end
+    end)
+    return tip
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- MINI-GAME OVERLAY WIDGET  (floating in-game quick-access bar)
+-- ════════════════════════════════════════════════════════════════════════════
+local QuickBar = frame(GUI, {
+    Size             = UDim2.fromOffset(58, 200),
+    Position         = UDim2.new(1, -74, 0.5, -100),
+    BackgroundColor3 = Color3.fromRGB(17,9,11),
+    ZIndex           = 70,
+    Visible          = false,
+})
+round(QuickBar, 16)
+outline(QuickBar, C.line, 1)
+fillGradient(QuickBar, Color3.fromRGB(20,10,12), Color3.fromRGB(14,8,11), 90)
+glow(QuickBar, 90, C.electric, 0.82, UDim2.new(0.5,-45,0.5,-45))
+
+local function qBarBtn(icon, y, col, fn)
+    local b = button(QuickBar, {
+        Size=UDim2.fromOffset(40,40), Position=UDim2.fromOffset(9, y),
+        BackgroundColor3=Color3.fromRGB(20,10,12),
+        Text=icon, TextColor3=col or C.ice,
+        Font=Enum.Font.GothamBold, TextSize=15, ZIndex=71,
+    })
+    round(b, 12)
+    wire(b, Color3.fromRGB(20,10,12), C.cardHot)
+    b.MouseButton1Click:Connect(function() play("tap"); if fn then fn() end end)
+    return b
+end
+
+qBarBtn("LP", 8,  C.white, function()
+    RestoreOrb.Visible = false
+    Main.Visible = true
+    Main.Size = UDim2.fromScale(0,0)
+    Main.Position = UDim2.fromScale(0.5,0.5)
+    if Settings.blur then Blur.Enabled=true; tw(Blur,0.36,{Size=12}) end
+    spring(Main,0.44,{Size=UDim2.fromScale(1,1),Position=UDim2.fromScale(0,0)})
+end)
+qBarBtn("★", 56, C.yellow, function()
+    _G.LP10ChangePage("Favorites")
+    RestoreOrb.Visible=false
+    Main.Visible=true
+    spring(Main,0.44,{Size=UDim2.fromScale(1,1),Position=UDim2.fromScale(0,0)})
+end)
+qBarBtn("↺", 104, C.green, function()
+    if Persist.recent[1] then
+        for _, d in ipairs(Scripts) do
+            if d.N == Persist.recent[1] then execScript(d); break end
+        end
+    else toast("Nothing recent","This UI preview has no script execution.",C.yellow) end
+end)
+qBarBtn("◆", 152, C.ice, function()
+    _G.LP10ChangePage("Pinned")
+    RestoreOrb.Visible=false
+    Main.Visible=true
+    spring(Main,0.44,{Size=UDim2.fromScale(1,1),Position=UDim2.fromScale(0,0)})
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- DRAG SUPPORT FOR QUICK BAR
+-- ════════════════════════════════════════════════════════════════════════════
+do
+    local dragging, dragStart, startPos = false, nil, nil
+    QuickBar.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            dragStart = inp.Position
+            startPos  = QuickBar.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(inp)
+        if not dragging then return end
+        if inp.UserInputType == Enum.UserInputType.MouseMovement
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            local delta = inp.Position - dragStart
+            QuickBar.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- COMMAND PALETTE  (press Ctrl+K or ; to open quick-search overlay)
+-- ════════════════════════════════════════════════════════════════════════════
+local CmdPalette = frame(GUI, {
+    Size             = UDim2.fromOffset(380, 58),
+    Position         = UDim2.new(0.5, -190, 0, -70),
+    BackgroundColor3 = C.panel,
+    Visible          = false,
+    ZIndex           = 160,
+})
+round(CmdPalette, 16)
+outline(CmdPalette, C.electric, 1.2)
+fillGradient(CmdPalette, Color3.fromRGB(28,14,17), C.panel, 135)
+glow(CmdPalette, 160, C.electric, 0.84, UDim2.new(0.5,-80,0.5,-80))
+
+local CmdInput = input(CmdPalette, {
+    Size=UDim2.new(1,-40,1,-12), Position=UDim2.fromOffset(38,6),
+    BackgroundTransparency=1, Text="",
+    PlaceholderText="Type a script name and press Enter…",
+    TextColor3=C.white, PlaceholderColor3=C.muted,
+    Font=Enum.Font.GothamSemibold, TextSize=13,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=161,
+    ClearTextOnFocus=true,
+})
+label(CmdPalette, {
+    Size=UDim2.fromOffset(28,46), Position=UDim2.fromOffset(8,6),
+    Text="🎃", TextColor3=C.electric,
+    Font=Enum.Font.GothamBold, TextSize=14, ZIndex=161,
+})
+
+local cmdOpen = false
+local function openCmd()
+    cmdOpen = true
+    CmdPalette.Visible = true
+    CmdInput.Text = ""
+    tw(CmdPalette, 0.26, {Position=UDim2.new(0.5,-190,0,18)})
+    task.delay(0.1, function() pcall(function() CmdInput:CaptureFocus() end) end)
+end
+local function closeCmd()
+    cmdOpen = false
+    tw(CmdPalette, 0.20, {Position=UDim2.new(0.5,-190,0,-70)}, nil, Enum.EasingDirection.In)
+    task.delay(0.22, function()
+        if CmdPalette then CmdPalette.Visible = false end
+    end)
+end
+
+CmdInput.FocusLost:Connect(function(enter)
+    if enter and CmdInput.Text ~= "" then
+        local q = CmdInput.Text:lower()
+        local found = nil
+        for _, d in ipairs(Scripts) do
+            if d.N:lower():find(q, 1, true) then found = d; break end
+        end
+        if found then
+            closeCmd()
+            task.delay(0.08, function() openDetail(found) end)
+        else
+            toast("Not Found", '"'..CmdInput.Text..'"'..": no matching script.", C.red)
+        end
+    else
+        closeCmd()
+    end
+end)
+
+UIS.InputBegan:Connect(function(inp, gp)
+    if gp then return end
+    if inp.KeyCode == Enum.KeyCode.Semicolon or
+       (inp.KeyCode == Enum.KeyCode.K and UIS:IsKeyDown(Enum.KeyCode.LeftControl)) then
+        if cmdOpen then closeCmd() else openCmd() end
+    end
+    if inp.KeyCode == Enum.KeyCode.Escape and cmdOpen then
+        closeCmd()
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ACHIEVEMENT / MILESTONE SYSTEM
+-- ════════════════════════════════════════════════════════════════════════════
+local Milestones = {
+    {threshold=1,   title="First Preview",     msg="You opened your first catalogue preview.",    col=C.electric},
+    {threshold=5,   title="Preview Explorer",msg="Browse the Halloween catalogue entries.",         col=C.electric},
+    {threshold=10,  title="Preview Mode",     msg="Source code and game actions are disabled.",          col=C.violet},
+    {threshold=25,  title="Halloween Fan",   msg="Explore the catalogue preview.",            col=C.yellow},
+    {threshold=50,  title="UI Explorer",     msg="Favorites and pins stay in this session.",         col=C.green},
+    {threshold=100, title="LP10 Legend",    msg="You explored the Halloween UI preview.", col=C.pink},
+    {threshold=3,   title="Curator",        msg="3 favorites saved. Your collection is taking shape.",     col=C.yellow, fav=true},
+    {threshold=5,   title="Collector",      msg="5 pinned scripts. Pin master achieved.",                  col=C.ice,    pin=true},
+}
+
+local function checkMilestones()
+    for _, m in ipairs(Milestones) do
+        local count = m.fav and #Persist.favorites
+                   or m.pin and #Persist.pinned
+                   or (Persist.execCount or 0)
+        local key   = "ach_"..m.title
+        if count >= m.threshold and not Persist[key] then
+            Persist[key] = true
+            task.delay(0.5, function()
+                toast("🏆 "..m.title, m.msg, m.col)
+            end)
+        end
+    end
+end
+
+-- Hook milestone check into execScript
+local _origExec = execScript
+execScript = function(data)
+    _origExec(data)
+    task.delay(0.8, checkMilestones)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- KEYBOARD SHORTCUTS OVERLAY  (press F1 to toggle)
+-- ════════════════════════════════════════════════════════════════════════════
+local ShortcutsPanel = frame(GUI, {
+    Size             = UDim2.fromOffset(320, 320),
+    Position         = UDim2.new(0.5, -160, 0.5, -170),
+    BackgroundColor3 = C.panel,
+    Visible          = false,
+    ZIndex           = 165,
+})
+round(ShortcutsPanel, 18)
+outline(ShortcutsPanel, C.line, 1.2)
+fillGradient(ShortcutsPanel, Color3.fromRGB(20,10,12), C.panel, 135)
+
+label(ShortcutsPanel, {
+    Size=UDim2.new(1,-32,0,24), Position=UDim2.fromOffset(16,14),
+    Text="KEYBOARD SHORTCUTS",
+    TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=13,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=166,
+})
+frame(ShortcutsPanel, {
+    Size=UDim2.new(1,-32,0,1), Position=UDim2.fromOffset(16,44),
+    BackgroundColor3=C.line, ZIndex=166,
+})
+
+local shortcuts = {
+    {"Ctrl + K  /  ;",  "Open command palette"},
+    {"F1",              "Toggle this shortcuts overlay"},
+    {"Escape",          "Close command palette"},
+    {"← Back",          "Close detail panel (tap back button)"},
+    {"Scroll",          "Navigate script list"},
+    {"Tap script",      "Open detail / inspect panel"},
+    {"Long-press",      "Show tooltip with risk and tips"},
+    {"Tap ─",           "Minimise LP10 to floating orb"},
+    {"Tap ✕",           "Close LP10 completely"},
+    {"Tap F",           "Restore full-screen lock"},
+}
+
+for i, s in ipairs(shortcuts) do
+    local row = frame(ShortcutsPanel, {
+        Size=UDim2.new(1,-32,0,22),
+        Position=UDim2.fromOffset(16, 50+(i-1)*24),
+        BackgroundTransparency=1, ZIndex=166,
+    })
+    label(row, {
+        Size=UDim2.new(0.42,0,1,0), Text=s[1],
+        TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=9,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=167,
+    })
+    label(row, {
+        Size=UDim2.new(0.58,0,1,0), Position=UDim2.fromScale(0.42,0),
+        Text=s[2], TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=9,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=167,
+    })
+end
+
+local closeShortcuts = button(ShortcutsPanel, {
+    Size=UDim2.fromOffset(28,28), Position=UDim2.new(1,-40,0,8),
+    BackgroundColor3=Color3.fromRGB(84,28,20), Text="✕",
+    TextColor3=C.red, Font=Enum.Font.GothamBold, TextSize=11, ZIndex=166,
+})
+round(closeShortcuts, 8)
+closeShortcuts.MouseButton1Click:Connect(function()
+    play("tap")
+    tw(ShortcutsPanel, 0.18, {BackgroundTransparency=1})
+    task.delay(0.20, function() if ShortcutsPanel then ShortcutsPanel.Visible=false; ShortcutsPanel.BackgroundTransparency=0 end end)
+end)
+
+UIS.InputBegan:Connect(function(inp, gp)
+    if gp then return end
+    if inp.KeyCode == Enum.KeyCode.F1 then
+        ShortcutsPanel.Visible = not ShortcutsPanel.Visible
+        if ShortcutsPanel.Visible then
+            play("pop")
+            spring(ShortcutsPanel, 0.28, {Size=UDim2.fromOffset(324,324)})
+        end
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PARTICLE SYSTEM  (ambient floating particles in background)
+-- ════════════════════════════════════════════════════════════════════════════
+local PARTICLE_COUNT = 0
+local MAX_PARTICLES  = 28
+
+local function spawnParticle()
+    if PARTICLE_COUNT >= MAX_PARTICLES then return end
+    if not Settings.particles or Settings.performance then return end
+    PARTICLE_COUNT = PARTICLE_COUNT + 1
+
+    local vp   = Cam.ViewportSize
+    local size = math.random(3, 7)
+    local x    = math.random(0, math.floor(vp.X))
+    local y    = math.floor(vp.Y) + size + 4
+
+    local colors = {C.electric, C.royal, C.ice, C.violet, C.cyan}
+    local col    = colors[math.random(1,#colors)]
+
+    local pt = frame(Main, {
+        Size             = UDim2.fromOffset(size, size),
+        Position         = UDim2.fromOffset(x, y),
+        BackgroundColor3 = col,
+        BackgroundTransparency = 0.45,
+        ZIndex           = 4,
+    })
+    round(pt, math.ceil(size/2))
+
+    local duration = math.random(60, 130) / 10  -- 6–13 seconds
+    local endX     = x + math.random(-80, 80)
+
+    tw(pt, duration, {
+        Position             = UDim2.fromOffset(endX, -size-4),
+        BackgroundTransparency = 1,
+    }, Enum.EasingStyle.Linear)
+
+    task.delay(duration, function()
+        pcall(function() pt:Destroy() end)
+        PARTICLE_COUNT = PARTICLE_COUNT - 1
+    end)
+end
+
+task.spawn(function()
+    while GUI and GUI.Parent do
+        if Settings.particles and not Settings.performance then
+            spawnParticle()
+            task.wait(math.random(12,30)/10)
+        else
+            task.wait(1.2)
+        end
+    end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- AMBIENT SOUND LOOP  (very subtle background tone, toggleable)
+-- ════════════════════════════════════════════════════════════════════════════
+local ambientSound = nil
+pcall(function()
+    ambientSound = new("Sound", SoundService, {
+        SoundId      = "rbxassetid://1843363841",
+        Volume       = 0.04,
+        Looped       = true,
+        PlaybackSpeed = 0.88,
+    })
+    if Settings.sounds then ambientSound:Play() end
+end)
+
+-- Hook sounds toggle to also control ambient
+local _origReady = refresh
+refresh = function()
+    _origReady()
+    pcall(function()
+        if ambientSound then
+            if Settings.sounds then ambientSound:Play()
+            else ambientSound:Stop() end
+        end
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- OFFLINE UI-ONLY PREVIEW (external updater omitted)
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- LONG-PRESS TOOLTIP WIRING (on desktop: right-click script cards triggers tooltip)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Wire into openDetail — add tooltip trigger on right mouse button
+local function wireTooltipOnCard(item, data)
+    item.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton2 then
+            local mouse = inp.Position
+            showTooltip(data, mouse.X, mouse.Y)
+        end
+    end)
+end
+
+-- Extend scriptCard to include tooltip wiring
+local _origCard = scriptCard
+scriptCard = function(parent, data, order)
+    local item = _origCard(parent, data, order)
+    if item then wireTooltipOnCard(item, data) end
+    return item
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- FOOTER WATERMARK  (rendered at bottom of detail panel)
+-- ════════════════════════════════════════════════════════════════════════════
+frame(Detail, {
+    Size=UDim2.new(1,-32,0,1), Position=UDim2.new(0,16,1,-44),
+    BackgroundColor3=C.line, ZIndex=61,
+})
+label(Detail, {
+    Size=UDim2.new(1,-32,0,28), Position=UDim2.new(0,16,1,-40),
+    Text="LP10 HALLOWEEN UI  •  @LPOLVO  •  instagram.com/4me.h4mz4_",
+    TextColor3=C.dim, Font=Enum.Font.Gotham, TextSize=8,
+    TextXAlignment=Enum.TextXAlignment.Center, ZIndex=61,
+})
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SIDEBAR FOOTER WATERMARK
+-- ════════════════════════════════════════════════════════════════════════════
+label(Side, {
+    Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,1,-18),
+    Text="© 2025 @LPOLVO  •  instagram.com/4me.h4mz4_",
+    TextColor3=C.dim, Font=Enum.Font.Gotham, TextSize=7,
+    ZIndex=15,
+})
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- FINAL BOOT COMPLETIONS
+-- ════════════════════════════════════════════════════════════════════════════
+-- Execution control remains disabled in this UI-only preview.
+
+-- Wire About nav
+AboutBtn.MouseButton1Click:Connect(function()
+    changePage("About")
+end)
+
+-- Wire cmd palette from settings
+_G.LP10OpenCmd = openCmd
+
+-- Completion toasts
+task.delay(7.0, function()
+    toast("Press F1", "Show keyboard shortcuts overlay at any time.", C.muted)
+end)
+task.delay(10.0, function()
+    toast("Press ; or Ctrl+K", "Open the command palette to find scripts instantly.", C.violet)
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- UI-ONLY BUILD NOTES  —  LP10 HALLOWEEN UNIVERSAL
+-- ════════════════════════════════════════════════════════════════════════════
+--[[
+    LP10 Halloween Universal — UI-only catalogue preview.
+    This LocalScript keeps 42 catalogue labels and categories for display only.
+    No executable payloads, external script loading, clipboard API, executor API,
+    game remotes, or automated gameplay are included. Favorites and pins are
+    stored in memory only for the current session.
+
+    Features: search, categories, detail preview, favorites, pins, seasonal
+    colors, ember ambience, responsive layout, and UI settings.
+    Install as a LocalScript in an experience you own or are authorized to edit.
+]]
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- EXTENDED DETAIL PANEL V2  (tags display, added version, tested label)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Extend openDetail to also render tags from ScriptMeta
+local _openDetailBase = openDetail
+openDetail = function(data)
+    _openDetailBase(data)
+    -- Add meta info to existing desc label
+    local meta = ScriptMeta and ScriptMeta[data.N]
+    if meta then
+        local tagsStr = ""
+        if meta.tags then
+            local tagList = {}
+            for _, t in ipairs(meta.tags) do
+                table.insert(tagList, "#"..t)
+            end
+            tagsStr = table.concat(tagList, "  ")
+        end
+        local full = "Halloween catalog preview only; no source code is included."
+        if tagsStr ~= "" then
+            full = full .. "\n\nTags: " .. tagsStr
+        end
+        if meta.tested then
+            full = full .. "\nTested: " .. meta.tested
+        end
+        if meta.added then
+            full = full .. "\nAdded: " .. meta.added
+        end
+        if DetailDesc then
+            DetailDesc.Text = full
+        end
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCRIPT SEARCH ENGINE  (advanced search: by tag, category, name)
+-- ════════════════════════════════════════════════════════════════════════════
+local function searchScripts(query)
+    query = query:lower():gsub("^%s+",""):gsub("%s+$","")
+    if query == "" then return Scripts end
+    local results = {}
+    local seen    = {}
+    -- 1. Exact name prefix
+    for _, d in ipairs(Scripts) do
+        if d.N:lower():sub(1,#query) == query and not seen[d.N] then
+            table.insert(results, d); seen[d.N] = true
+        end
+    end
+    -- 2. Name contains
+    for _, d in ipairs(Scripts) do
+        if d.N:lower():find(query,1,true) and not seen[d.N] then
+            table.insert(results, d); seen[d.N] = true
+        end
+    end
+    -- 3. Tag match
+    if ScriptMeta then
+        for _, d in ipairs(Scripts) do
+            if not seen[d.N] then
+                local meta = ScriptMeta[d.N]
+                if meta and meta.tags then
+                    for _, tag in ipairs(meta.tags) do
+                        if tag:find(query,1,true) then
+                            table.insert(results, d); seen[d.N] = true; break
+                        end
+                    end
+                end
+            end
+        end
+    end
+    -- 4. Category match
+    for _, d in ipairs(Scripts) do
+        if not seen[d.N] and d.Cat and d.Cat:lower():find(query,1,true) then
+            table.insert(results, d); seen[d.N] = true
+        end
+    end
+    -- 5. Description match
+    for _, d in ipairs(Scripts) do
+        if not seen[d.N] and d.F and d.F:lower():find(query,1,true) then
+            table.insert(results, d); seen[d.N] = true
+        end
+    end
+    return results
+end
+
+-- Override buildLibrary search to use advanced engine
+local _origBuildLibrary = buildLibrary
+buildLibrary = function(page)
+    local titles = {Scripts="Halloween Catalog",Favorites="Favorites",Pinned="Pinned Scripts",Recent="Recently Viewed"}
+    PageTitle.Text = titles[page] or "Script Library"
+    PageSub.Text   = page=="Scripts" and "Tap a script to inspect it before executing." or "Your curated LP10 collection."
+
+    local base  = listForPage(page)
+    local query = (SearchBox.Text or ""):lower():gsub("^%s+",""):gsub("%s+$","")
+    local list  = {}
+
+    if query ~= "" then
+        -- Use advanced search engine on base list
+        local advanced = searchScripts(query)
+        local baseSet  = {}
+        for _, d in ipairs(base) do baseSet[d.N] = true end
+        for _, d in ipairs(advanced) do
+            if baseSet[d.N] then table.insert(list, d) end
+        end
+    else
+        list = base
+    end
+
+    local visible = 0
+    for _, data in ipairs(list) do
+        local catMatch = ActiveCat == "All"
+            or (ActiveCat == "New" and data.New)
+            or (data.Cat == ActiveCat)
+        if catMatch then
+            visible = visible + 1
+            scriptCard(Body, data, visible)
+        end
+    end
+
+    if visible == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,110), LayoutOrder=1,
+            Text=query~="" and ('No matches for "'..SearchBox.Text..'"') or
+                 "Nothing here yet.\nPreview the catalog to fill this collection.",
+            TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=13,
+            TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=16,
+        })
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCRIPT RATING SYSTEM  (tap to rate after execution)
+-- ════════════════════════════════════════════════════════════════════════════
+local Ratings = {}
+
+local function showRating(data)
+    if not data then return end
+    if Ratings[data.N] then return end  -- already rated
+
+    local panel = frame(GUI, {
+        Size=UDim2.fromOffset(300,120),
+        Position=UDim2.new(0.5,-150,1,-140),
+        BackgroundColor3=C.panel, ZIndex=130,
+    })
+    round(panel, 16)
+    outline(panel, C.line, 1)
+    fillGradient(panel, Color3.fromRGB(20,10,12), C.panel, 135)
+
+    label(panel, {
+        Size=UDim2.new(1,-28,0,22), Position=UDim2.fromOffset(14,10),
+        Text="Rate: "..data.N,
+        TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=131,
+        TextTruncate=Enum.TextTruncate.AtEnd,
+    })
+    label(panel, {
+        Size=UDim2.new(1,-28,0,16), Position=UDim2.fromOffset(14,34),
+        Text="Did this script work as expected?",
+        TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=131,
+    })
+
+    local function rateBtn(lbl, col, x, rating)
+        local b = button(panel, {
+            Size=UDim2.fromOffset(80,36), Position=UDim2.fromOffset(x,62),
+            BackgroundColor3=Color3.fromRGB(26,14,17),
+            Text=lbl, TextColor3=col,
+            Font=Enum.Font.GothamBold, TextSize=11, ZIndex=131,
+        })
+        round(b, 10)
+        outline(b, col, 1)
+        wire(b, Color3.fromRGB(26,14,17), C.cardHot)
+        b.MouseButton1Click:Connect(function()
+            play("tap")
+            Ratings[data.N] = rating
+            toast("Thanks!", "Rating saved for "..data.N..".", col)
+            tw(panel, 0.2, {BackgroundTransparency=1})
+            task.delay(0.22, function() pcall(function() panel:Destroy() end) end)
+        end)
+    end
+    rateBtn("👍 Works",   C.green,  14,  5)
+    rateBtn("👌 Okay",    C.yellow, 104, 3)
+    rateBtn("👎 Broken",  C.red,    194, 1)
+
+    -- Auto-dismiss after 8s
+    task.delay(8, function()
+        if panel and panel.Parent then
+            tw(panel, 0.2, {BackgroundTransparency=1})
+            task.delay(0.22, function() pcall(function() panel:Destroy() end) end)
+        end
+    end)
+
+    spring(panel, 0.28, {Position=UDim2.new(0.5,-150,1,-148)})
+end
+
+-- Hook rating prompt 2.5s after execution
+local _origExecForRating = execScript
+execScript = function(data)
+    _origExecForRating(data)
+    task.delay(2.5, function() showRating(data) end)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCRIPT NOTES SYSTEM  (persistent per-script notes, stored in Persist)
+-- ════════════════════════════════════════════════════════════════════════════
+local function openNotes(data)
+    if not data then return end
+
+    local notePanel = frame(GUI, {
+        Size=UDim2.fromOffset(360, 260),
+        Position=UDim2.new(0.5,-180,0.5,-130),
+        BackgroundColor3=C.panel, ZIndex=140,
+    })
+    round(notePanel, 18)
+    outline(notePanel, C.line, 1.2)
+    fillGradient(notePanel, Color3.fromRGB(20,10,12), C.panel, 135)
+
+    label(notePanel, {
+        Size=UDim2.new(1,-32,0,24), Position=UDim2.fromOffset(16,14),
+        Text="Notes: "..data.N,
+        TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=13,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=141,
+        TextTruncate=Enum.TextTruncate.AtEnd,
+    })
+    frame(notePanel, {
+        Size=UDim2.new(1,-32,0,1), Position=UDim2.fromOffset(16,44),
+        BackgroundColor3=C.line, ZIndex=141,
+    })
+
+    local noteBox = input(notePanel, {
+        Size=UDim2.new(1,-28,0,140), Position=UDim2.fromOffset(14,50),
+        BackgroundColor3=C.input, Text=Persist.notes[data.N] or "",
+        PlaceholderText="Write your notes here… (e.g. tips, settings that worked)",
+        TextColor3=C.white, PlaceholderColor3=C.muted,
+        Font=Enum.Font.Gotham, TextSize=11,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        TextYAlignment=Enum.TextYAlignment.Top,
+        MultiLine=true, ZIndex=141,
+        ClearTextOnFocus=false,
+    })
+    round(noteBox, 10)
+    outline(noteBox, C.line, 1)
+    inset(noteBox, 8,8,6,6)
+
+    local saveBtn = button(notePanel, {
+        Size=UDim2.new(0.5,-18,0,38), Position=UDim2.fromOffset(14,200),
+        BackgroundColor3=C.electric, Text="SAVE",
+        TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=12, ZIndex=141,
+    })
+    round(saveBtn, 11)
+    fillGradient(saveBtn, C.electric, C.royal, 0)
+    wire(saveBtn, C.electric, C.royal)
+    saveBtn.MouseButton1Click:Connect(function()
+        play("tap")
+        Persist.notes[data.N] = noteBox.Text
+        toast("Saved","Notes saved for "..data.N..".",C.green)
+        tw(notePanel, 0.18, {BackgroundTransparency=1})
+        task.delay(0.20, function() pcall(function() notePanel:Destroy() end) end)
+    end)
+
+    local cancelBtn = button(notePanel, {
+        Size=UDim2.new(0.5,-18,0,38), Position=UDim2.new(0.5,4,0,200),
+        BackgroundColor3=C.card, Text="CANCEL",
+        TextColor3=C.muted, Font=Enum.Font.GothamBold, TextSize=12, ZIndex=141,
+    })
+    round(cancelBtn, 11)
+    outline(cancelBtn, C.line, 1)
+    wire(cancelBtn, C.card, C.cardHot)
+    cancelBtn.MouseButton1Click:Connect(function()
+        play("tap")
+        tw(notePanel, 0.18, {BackgroundTransparency=1})
+        task.delay(0.20, function() pcall(function() notePanel:Destroy() end) end)
+    end)
+
+    spring(notePanel, 0.30, {Size=UDim2.fromOffset(364,264)})
+end
+
+-- Add Notes button to detail panel
+local DetailNotesBtn = button(Detail, {
+    Size=UDim2.new(1,-32,0,36), Position=UDim2.fromOffset(16,390),
+    BackgroundColor3=C.card, Text="📝  NOTES",
+    TextColor3=C.violet, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=61,
+})
+round(DetailNotesBtn, 11)
+outline(DetailNotesBtn, C.line, 1)
+wire(DetailNotesBtn, C.card, C.cardHot)
+DetailNotesBtn.MouseButton1Click:Connect(function()
+    play("tap")
+    if CurrentScript then openNotes(CurrentScript) end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCRIPTS STATISTICS PAGE  (detailed execution analytics)
+-- ════════════════════════════════════════════════════════════════════════════
+local function buildStats()
+    PageTitle.Text = "Preview Stats"
+    PageSub.Text   = "Your complete LP10 execution history."
+
+    local total = Persist.execCount or 0
+    local favC  = #Persist.favorites
+    local pinC  = #Persist.pinned
+    local recC  = #Persist.recent
+
+    -- Top row
+    local topRow = frame(Body, {
+        Size=UDim2.new(1,0,0,76), BackgroundTransparency=1, LayoutOrder=1, ZIndex=16,
+    })
+    listLayout(topRow, Enum.FillDirection.Horizontal, 12)
+    statBox(topRow, "OFF", "EXECUTION DISABLED", C.muted, 1)
+    statBox(topRow, tostring(favC),  "FAVORITES",        C.yellow,   2)
+    statBox(topRow, tostring(recC),  "RECENT",           C.green,    3)
+
+    sectionTitle(Body, "CATALOG ENTRIES", 2)
+
+    -- Sort by exec count
+    local sorted = {}
+    for n, cnt in pairs(Persist.totalExecs or {}) do
+        table.insert(sorted, {name=n, count=cnt})
+    end
+    table.sort(sorted, function(a,b) return a.count > b.count end)
+
+    if #sorted == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,50), LayoutOrder=3,
+            Text="Execution history is not available in this UI-only preview.",
+            TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
+        })
+    else
+        for i = 1, math.min(10, #sorted) do
+            local s = sorted[i]
+            local row = frame(Body, {
+                Size=UDim2.new(1,0,0,52), BackgroundColor3=C.card,
+                LayoutOrder=2+i, ZIndex=16,
+            })
+            round(row, 13)
+            outline(row, C.line, 1)
+            fillGradient(row, Color3.fromRGB(20,10,12), C.card, 135)
+            label(row, {
+                Size=UDim2.fromOffset(28,52), Position=UDim2.fromOffset(10,0),
+                Text=tostring(i)..".",
+                TextColor3=i==1 and C.yellow or (i==2 and C.ice or C.muted),
+                Font=Enum.Font.GothamBold, TextSize=11, ZIndex=17,
+            })
+            label(row, {
+                Size=UDim2.new(1,-110,0,22), Position=UDim2.fromOffset(38,8),
+                Text=s.name, TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=12,
+                TextXAlignment=Enum.TextXAlignment.Left,
+                TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=17,
+            })
+            label(row, {
+                Size=UDim2.new(1,-110,0,16), Position=UDim2.fromOffset(38,30),
+                Text="Previewed "..s.count.." time"..(s.count>1 and "s" or ""),
+                TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9,
+                TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
+            })
+            label(row, {
+                Size=UDim2.fromOffset(80,52), Position=UDim2.new(1,-90,0,0),
+                Text=tostring(s.count).."×",
+                TextColor3=C.electric, Font=Enum.Font.GothamBold, TextSize=18,
+                ZIndex=17,
+            })
+        end
+    end
+
+    sectionTitle(Body, "ACHIEVEMENTS UNLOCKED", 14)
+    local achCount = 0
+    for k, v in pairs(Persist) do
+        if k:sub(1,4) == "ach_" and v == true then
+            achCount = achCount + 1
+            label(Body, {
+                Size=UDim2.new(1,0,0,28), LayoutOrder=14+achCount,
+                Text="🏆  "..k:sub(5),
+                TextColor3=C.yellow, Font=Enum.Font.GothamBold, TextSize=11,
+                TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
+            })
+        end
+    end
+    if achCount == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,28), LayoutOrder=15,
+            Text="Achievements are disabled in this UI-only preview.",
+            TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
+        })
+    end
+end
+
+-- Add Stats to navigation
+table.insert(Pages, {id="Stats", label="Stats", icon="📊"})
+local statsNavBtn = button(NavScroll, {
+    Size=UDim2.new(1,-12,0,34), BackgroundColor3=Color3.fromRGB(11,6,8),
+    Text="  📊  Stats", TextColor3=C.text,
+    Font=Enum.Font.GothamSemibold, TextSize=11,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
+})
+round(statsNavBtn, 10)
+inset(statsNavBtn, 6,0,0,0)
+wire(statsNavBtn, Color3.fromRGB(11,6,8), C.cardHot)
+NavButtons["Stats"] = statsNavBtn
+statsNavBtn.MouseButton1Click:Connect(function() changePage("Stats") end)
+
+-- Update refresh to handle Stats page
+local _origRefresh2 = refresh
+refresh = function()
+    if CurrentPage == "Stats" then
+        wipeBody()
+        buildStats()
+        for id, btn in pairs(NavButtons) do
+            local active = id == CurrentPage
+            btn.BackgroundColor3 = active and Color3.fromRGB(150,55,20) or Color3.fromRGB(11,6,8)
+            for _, ch in ipairs(btn:GetChildren()) do
+                if ch:IsA("TextLabel") then
+                    ch.TextColor3 = active and C.white or C.text
+                end
+            end
+        end
+    else
+        _origRefresh2()
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- HAPTIC FEEDBACK HELPER
+-- ════════════════════════════════════════════════════════════════════════════
+local HapticService = nil
+pcall(function() HapticService = game:GetService("HapticService") end)
+
+local function haptic(intensity)
+    pcall(function()
+        if HapticService and UIS.TouchEnabled then
+            HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, intensity or 0.4)
+            task.delay(0.12, function()
+                pcall(function()
+                    HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, 0)
+                end)
+            end)
+        end
+    end)
+end
+
+-- Preview activity does not trigger game actions.
+local _origExecFinal = execScript
+execScript = function(data)
+    haptic(0.55)
+    _origExecFinal(data)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════════════════════
+-- FOOTER: SESSION SUMMARY TOAST ON CLOSE
+-- ════════════════════════════════════════════════════════════════════════════
+local sessionStart = os.time()
+
+local _origClose = CloseBtn.MouseButton1Click
+CloseBtn.MouseButton1Click:Connect(function()
+    local duration = os.time() - sessionStart
+    local mins     = math.floor(duration/60)
+    local secs     = duration % 60
+        -- Brief summary toast before close
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title    = "LP10 Session Over",
+        Text     = "Session: "..mins.."m "..secs.."s  /  UI-only preview  /  Thanks, "..LP.Name.."!",
+        Duration = 6,
+    })
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ANIMATED LOADING DOTS  (shown in Body area while page renders)
+-- ════════════════════════════════════════════════════════════════════════════
+local function showLoading(parent)
+    local dots = label(parent, {
+        Size=UDim2.new(1,0,0,44), LayoutOrder=0,
+        Text="Preparing Halloween preview…",
+        TextColor3=C.electric, Font=Enum.Font.GothamBold, TextSize=14,
+        TextXAlignment=Enum.TextXAlignment.Center, ZIndex=17,
+    })
+    task.spawn(function()
+        local frames2 = {"Loading   ","Loading.  ","Loading.. ","Loading..."}
+        local fi = 1
+        while dots and dots.Parent do
+            dots.Text = frames2[fi]
+            fi = fi % #frames2 + 1
+            task.wait(0.28)
+        end
+    end)
+    return dots
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- GLOBAL EXECUTION GUARD  (prevents double-execution within 1s)
+-- ════════════════════════════════════════════════════════════════════════════
+local lastExecTime = {}
+
+local _guardedExec = execScript
+execScript = function(data)
+    if not data then return end
+    local now = os.clock()
+    if lastExecTime[data.N] and (now - lastExecTime[data.N]) < 1.2 then
+        toast("Wait", "Please wait before executing this script again.", C.yellow)
+        return
+    end
+    lastExecTime[data.N] = now
+    _guardedExec(data)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- NOTIFICATION CENTER  (history of last 10 toasts)
+-- ════════════════════════════════════════════════════════════════════════════
+local NotifHistory = {}
+local MAX_NOTIF_HISTORY = 10
+
+local _origToast = toast
+toast = function(title, msg, col)
+    table.insert(NotifHistory, 1, {title=title, msg=msg, col=col, time=os.date("%H:%M:%S")})
+    if #NotifHistory > MAX_NOTIF_HISTORY then
+        table.remove(NotifHistory, #NotifHistory)
+    end
+    _origToast(title, msg, col)
+end
+
+local function buildNotifCenter()
+    PageTitle.Text = "Notifications"
+    PageSub.Text   = "Recent system messages and alerts."
+    if #NotifHistory == 0 then
+        label(Body, {
+            Size=UDim2.new(1,0,0,60), LayoutOrder=1,
+            Text="No notifications yet.",
+            TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=12,
+            TextXAlignment=Enum.TextXAlignment.Center, ZIndex=16,
+        })
+        return
+    end
+    for i, n in ipairs(NotifHistory) do
+        local row = frame(Body, {
+            Size=UDim2.new(1,0,0,60), BackgroundColor3=C.card, LayoutOrder=i, ZIndex=16,
+        })
+        round(row, 13)
+        outline(row, n.col or C.line, 1)
+        frame(row, {Size=UDim2.fromOffset(3,36), Position=UDim2.fromOffset(10,12), BackgroundColor3=n.col or C.electric, ZIndex=17})
+        label(row, {
+            Size=UDim2.new(1,-42,0,20), Position=UDim2.fromOffset(26,8),
+            Text=n.title, TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=12,
+            TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
+        })
+        label(row, {
+            Size=UDim2.new(1,-120,0,16), Position=UDim2.fromOffset(26,30),
+            Text=n.msg, TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=9,
+            TextXAlignment=Enum.TextXAlignment.Left,
+            TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=17,
+        })
+        label(row, {
+            Size=UDim2.fromOffset(80,16), Position=UDim2.new(1,-90,0,22),
+            Text=n.time, TextColor3=C.dim, Font=Enum.Font.Gotham, TextSize=8,
+            TextXAlignment=Enum.TextXAlignment.Right, ZIndex=17,
+        })
+    end
+end
+
+-- Add Notifications to nav
+local notifNavBtn = button(NavScroll, {
+    Size=UDim2.new(1,-12,0,34), BackgroundColor3=Color3.fromRGB(11,6,8),
+    Text="  🔔  Notifs", TextColor3=C.text,
+    Font=Enum.Font.GothamSemibold, TextSize=11,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
+})
+round(notifNavBtn, 10)
+inset(notifNavBtn, 6,0,0,0)
+wire(notifNavBtn, Color3.fromRGB(11,6,8), C.cardHot)
+NavButtons["Notifs"] = notifNavBtn
+notifNavBtn.MouseButton1Click:Connect(function() changePage("Notifs") end)
+
+local _origRefresh3 = refresh
+refresh = function()
+    if CurrentPage == "Notifs" then
+        wipeBody()
+        buildNotifCenter()
+        for id, btn in pairs(NavButtons) do
+            local active = id == CurrentPage
+            btn.BackgroundColor3 = active and Color3.fromRGB(150,55,20) or Color3.fromRGB(11,6,8)
+            for _, ch in ipairs(btn:GetChildren()) do
+                if ch:IsA("TextLabel") then ch.TextColor3 = active and C.white or C.text end
+            end
+        end
+    else
+        _origRefresh3()
+    end
+end
+
+
+
+
+
+-- FINAL SAFETY GUARD: every execution route remains preview-only.
+execScript = function(data)
+    if data then
+        toast("Preview only", "No executable payload is included in this Halloween UI build.", C.orange)
+    end
+    return false
+end
