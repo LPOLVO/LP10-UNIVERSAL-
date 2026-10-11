@@ -2,7 +2,7 @@
 ╔══════════════════════════════════════════════════════════════════════════════════════╗
 ║   LP10 UNIVERSAL  —  HALLOWEEN EDITION  🎃                                           ║
 ║   BY @LPOLVO (HAMZA)  |  INSTAGRAM: @4me.h4mz4_                                     ║
-║   Pumpkin Night Shell · 42 Scripts · Full-Screen · Spooky FX · Halloween Intro       ║
+║   Pumpkin Night Shell · 42 Scripts · Spooky FX · Halloween Intro · FIXED BOOT        ║
 ║   Live FPS/PING/MEM · Favorites · Pinned · Recent · Popular · Search · Stats         ║
 ╚══════════════════════════════════════════════════════════════════════════════════════╝
 ]]
@@ -22,7 +22,8 @@ local StarterGui    = game:GetService("StarterGui")
 local Marketplace   = game:GetService("MarketplaceService")
 local Stats         = game:GetService("Stats")
 
-local LP  = Players.LocalPlayer
+if not game:IsLoaded() then pcall(function() game.Loaded:Wait() end) end
+local LP  = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local sessionStart = os.time()
 
 -- Every long-lived connection is tracked so closing / re-running cleans up fully.
@@ -41,6 +42,8 @@ local ScriptMeta, searchScripts, showTooltip, openNotes, showRating
 local checkMilestones, haptic, enableSwipeExec, buildStats, buildNotifCenter
 local ambientSound, QuickBar
 local Cam = workspace.CurrentCamera or workspace:WaitForChild("Camera")
+-- grouped UI handles (keeps top-level locals under the 200 limit)
+local DT, AX, LC = {}, {}, {}
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- COLOUR PALETTE  —  Halloween Night
@@ -816,31 +819,31 @@ local AuroraFX = frame(Main, {
     ZIndex               = 5,
 })
 
-local AuroraOne = new("ImageLabel", AuroraFX, {
+AX.AuroraOne = new("ImageLabel", AuroraFX, {
     Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,110,20), ImageTransparency = 0.80,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(390,390),
     Position = UDim2.new(0.05,-195,0.10,-195), ZIndex = 5,
 })
-local AuroraTwo = new("ImageLabel", AuroraFX, {
+AX.AuroraTwo = new("ImageLabel", AuroraFX, {
     Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(170,94,40), ImageTransparency = 0.84,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(330,330),
     Position = UDim2.new(0.95,-165,0.82,-165), ZIndex = 5,
 })
-local AuroraThree = new("ImageLabel", AuroraFX, {
+AX.AuroraThree = new("ImageLabel", AuroraFX, {
     Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(90,220,50), ImageTransparency = 0.90,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(260,260),
     Position = UDim2.new(0.58,-130,1.05,-130), ZIndex = 5,
 })
-local AuroraFour = new("ImageLabel", AuroraFX, {
+AX.AuroraFour = new("ImageLabel", AuroraFX, {
     Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,80,10), ImageTransparency = 0.88,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(200,200),
     Position = UDim2.new(0.5,-100,0.5,-100), ZIndex = 5,
 })
-local AuroraLine = frame(AuroraFX, {
+AX.AuroraLine = frame(AuroraFX, {
     Size = UDim2.new(1.5,0,0,1), Position = UDim2.new(-0.25,0,0.34,0),
     BackgroundColor3 = C.electric, BackgroundTransparency = 0.92, Rotation = -18, ZIndex = 5,
 })
-local AuroraLine2 = frame(AuroraFX, {
+AX.AuroraLine2 = frame(AuroraFX, {
     Size = UDim2.new(1.5,0,0,1), Position = UDim2.new(-0.25,0,0.64,0),
     BackgroundColor3 = C.violet, BackgroundTransparency = 0.94, Rotation = 12, ZIndex = 5,
 })
@@ -850,19 +853,19 @@ task.spawn(function()
         local active = Settings.particles and not Settings.performance and not Settings.reduceMotion
         AuroraFX.Visible = active
         if active then
-            sine(AuroraOne,   5.8, {Position=UDim2.new(0.22,-195,0.24,-195), ImageTransparency=0.88})
-            sine(AuroraTwo,   6.4, {Position=UDim2.new(0.78,-165,0.68,-165), ImageTransparency=0.90})
-            sine(AuroraThree, 4.8, {Position=UDim2.new(0.42,-130,0.86,-130), ImageTransparency=0.94})
-            sine(AuroraFour,  7.0, {Position=UDim2.new(0.38,-100,0.38,-100), ImageTransparency=0.92})
-            sine(AuroraLine,  7.2, {Position=UDim2.new(0.05,0,0.62,0),       BackgroundTransparency=0.96})
-            sine(AuroraLine2, 5.6, {Position=UDim2.new(0.15,0,0.28,0),       BackgroundTransparency=0.97})
+            sine(AX.AuroraOne,   5.8, {Position=UDim2.new(0.22,-195,0.24,-195), ImageTransparency=0.88})
+            sine(AX.AuroraTwo,   6.4, {Position=UDim2.new(0.78,-165,0.68,-165), ImageTransparency=0.90})
+            sine(AX.AuroraThree, 4.8, {Position=UDim2.new(0.42,-130,0.86,-130), ImageTransparency=0.94})
+            sine(AX.AuroraFour,  7.0, {Position=UDim2.new(0.38,-100,0.38,-100), ImageTransparency=0.92})
+            sine(AX.AuroraLine,  7.2, {Position=UDim2.new(0.05,0,0.62,0),       BackgroundTransparency=0.96})
+            sine(AX.AuroraLine2, 5.6, {Position=UDim2.new(0.15,0,0.28,0),       BackgroundTransparency=0.97})
             task.wait(4.4)
-            sine(AuroraOne,   5.8, {Position=UDim2.new(0.05,-195,0.10,-195), ImageTransparency=0.80})
-            sine(AuroraTwo,   6.4, {Position=UDim2.new(0.95,-165,0.82,-165), ImageTransparency=0.84})
-            sine(AuroraThree, 4.8, {Position=UDim2.new(0.58,-130,1.05,-130), ImageTransparency=0.90})
-            sine(AuroraFour,  7.0, {Position=UDim2.new(0.5,-100,0.5,-100),   ImageTransparency=0.88})
-            sine(AuroraLine,  7.2, {Position=UDim2.new(-0.25,0,0.34,0),      BackgroundTransparency=0.92})
-            sine(AuroraLine2, 5.6, {Position=UDim2.new(-0.25,0,0.64,0),      BackgroundTransparency=0.94})
+            sine(AX.AuroraOne,   5.8, {Position=UDim2.new(0.05,-195,0.10,-195), ImageTransparency=0.80})
+            sine(AX.AuroraTwo,   6.4, {Position=UDim2.new(0.95,-165,0.82,-165), ImageTransparency=0.84})
+            sine(AX.AuroraThree, 4.8, {Position=UDim2.new(0.58,-130,1.05,-130), ImageTransparency=0.90})
+            sine(AX.AuroraFour,  7.0, {Position=UDim2.new(0.5,-100,0.5,-100),   ImageTransparency=0.88})
+            sine(AX.AuroraLine,  7.2, {Position=UDim2.new(-0.25,0,0.34,0),      BackgroundTransparency=0.92})
+            sine(AX.AuroraLine2, 5.6, {Position=UDim2.new(-0.25,0,0.64,0),      BackgroundTransparency=0.94})
             task.wait(4.4)
         else
             task.wait(0.8)
@@ -1209,7 +1212,7 @@ local Detail = frame(Inner, {
 })
 fillGradient(Detail, Color3.fromRGB(51,24,61), C.surface, 135)
 
-local DetailTop = frame(Detail, {
+DT.DetailTop = frame(Detail, {
     Size=UDim2.new(1,0,0,136), BackgroundTransparency=1, ZIndex=61,
 })
 frame(Detail, {
@@ -1217,124 +1220,124 @@ frame(Detail, {
     BackgroundColor3=C.line, ZIndex=61,
 })
 
-local DetailBack = button(DetailTop, {
+DT.DetailBack = button(DT.DetailTop, {
     Size=UDim2.fromOffset(36,36), Position=UDim2.fromOffset(16,16),
     BackgroundColor3=C.card, Text="←",
     TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=16, ZIndex=62,
 })
-round(DetailBack, 10)
-wire(DetailBack, C.card, C.cardHot)
+round(DT.DetailBack, 10)
+wire(DT.DetailBack, C.card, C.cardHot)
 
-local DetailIcon = frame(DetailTop, {
+DT.DetailIcon = frame(DT.DetailTop, {
     Size=UDim2.fromOffset(62,62), Position=UDim2.fromOffset(62,16),
     BackgroundColor3=C.royal, ZIndex=62,
 })
-round(DetailIcon, 18)
-fillGradient(DetailIcon, C.electric, C.royal, 135)
-glow(DetailIcon, 100, C.electric, 0.74, UDim2.new(0.5,-50,0.5,-50))
-local DetailIconLbl = label(DetailIcon, {
+round(DT.DetailIcon, 18)
+fillGradient(DT.DetailIcon, C.electric, C.royal, 135)
+glow(DT.DetailIcon, 100, C.electric, 0.74, UDim2.new(0.5,-50,0.5,-50))
+DT.DetailIconLbl = label(DT.DetailIcon, {
     Size=UDim2.fromScale(1,1), Text="▶",
     TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=20, ZIndex=63,
 })
 
-local DetailNewBadge = frame(DetailTop, {
+DT.DetailNewBadge = frame(DT.DetailTop, {
     Size=UDim2.fromOffset(44,20), Position=UDim2.fromOffset(62,82),
     BackgroundColor3=C.red, Visible=false, ZIndex=63,
 })
-round(DetailNewBadge, 8)
-label(DetailNewBadge, {
+round(DT.DetailNewBadge, 8)
+label(DT.DetailNewBadge, {
     Size=UDim2.fromScale(1,1), Text="NEW",
     TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=9, ZIndex=64,
 })
 
-local DetailTitle = label(DetailTop, {
+DT.DetailTitle = label(DT.DetailTop, {
     Size=UDim2.new(1,-148,0,44), Position=UDim2.fromOffset(138,18),
     Text="", TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=16,
     TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
 })
-local DetailMeta = label(DetailTop, {
+DT.DetailMeta = label(DT.DetailTop, {
     Size=UDim2.new(1,-148,0,18), Position=UDim2.fromOffset(138,72),
     Text="", TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=9,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
 })
 
-local DetailScroll = new("ScrollingFrame", Detail, {
+DT.DetailScroll = new("ScrollingFrame", Detail, {
     Size=UDim2.new(1,0,1,-248), Position=UDim2.fromOffset(0,142),
     BackgroundTransparency=1, BorderSizePixel=0,
     ScrollBarThickness=3, ScrollBarImageColor3=C.royal,
     CanvasSize=UDim2.fromOffset(0,0), AutomaticCanvasSize=Enum.AutomaticSize.Y,
     ZIndex=61,
 })
-inset(DetailScroll, 16,16,4,12)
-listLayout(DetailScroll, Enum.FillDirection.Vertical, 10)
+inset(DT.DetailScroll, 16,16,4,12)
+listLayout(DT.DetailScroll, Enum.FillDirection.Vertical, 10)
 
-label(DetailScroll, {
+label(DT.DetailScroll, {
     Size=UDim2.new(1,0,0,16), LayoutOrder=1,
     Text="ABOUT THIS SCRIPT", TextColor3=C.ice,
     Font=Enum.Font.GothamBold, TextSize=9,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
 })
-local DetailDesc = label(DetailScroll, {
+DT.DetailDesc = label(DT.DetailScroll, {
     Size=UDim2.new(1,0,0,40), LayoutOrder=2, AutomaticSize=Enum.AutomaticSize.Y,
     Text="", TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=12,
     TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left,
     TextYAlignment=Enum.TextYAlignment.Top, ZIndex=62,
 })
 
-local DetailExecCount = label(DetailScroll, {
+DT.DetailExecCount = label(DT.DetailScroll, {
     Size=UDim2.new(1,0,0,18), LayoutOrder=3,
     Text="", TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=10,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
 })
 
-local ActionRow = frame(DetailScroll, {
+local ActionRow = frame(DT.DetailScroll, {
     Size=UDim2.new(1,0,0,40), BackgroundTransparency=1, LayoutOrder=4, ZIndex=62,
 })
-local DetailFav = button(ActionRow, {
+DT.DetailFav = button(ActionRow, {
     Size=UDim2.new(0.5,-5,1,0), Position=UDim2.fromOffset(0,0),
     BackgroundColor3=C.card, Text="★  FAVORITE",
     TextColor3=C.yellow, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=63,
 })
-round(DetailFav, 11)
-outline(DetailFav, C.line, 1)
-wire(DetailFav, C.card, C.cardHot)
+round(DT.DetailFav, 11)
+outline(DT.DetailFav, C.line, 1)
+wire(DT.DetailFav, C.card, C.cardHot)
 
-local DetailPin = button(ActionRow, {
+DT.DetailPin = button(ActionRow, {
     Size=UDim2.new(0.5,-5,1,0), Position=UDim2.new(0.5,5,0,0),
     BackgroundColor3=C.card, Text="◆  PIN",
     TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=63,
 })
-round(DetailPin, 11)
-outline(DetailPin, C.line, 1)
-wire(DetailPin, C.card, C.cardHot)
+round(DT.DetailPin, 11)
+outline(DT.DetailPin, C.line, 1)
+wire(DT.DetailPin, C.card, C.cardHot)
 
-local DetailCopyBtn = button(DetailScroll, {
+DT.DetailCopyBtn = button(DT.DetailScroll, {
     Size=UDim2.new(1,0,0,36), LayoutOrder=5,
     BackgroundColor3=C.card, Text="⎘  COPY SCRIPT CODE",
     TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=62,
 })
-round(DetailCopyBtn, 11)
-outline(DetailCopyBtn, C.line, 1)
-wire(DetailCopyBtn, C.card, C.cardHot)
+round(DT.DetailCopyBtn, 11)
+outline(DT.DetailCopyBtn, C.line, 1)
+wire(DT.DetailCopyBtn, C.card, C.cardHot)
 
-local DetailNotesBtn = button(DetailScroll, {
+DT.DetailNotesBtn = button(DT.DetailScroll, {
     Size=UDim2.new(1,0,0,36), LayoutOrder=6,
     BackgroundColor3=C.card, Text="📝  NOTES",
     TextColor3=C.violet, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=62,
 })
-round(DetailNotesBtn, 11)
-outline(DetailNotesBtn, C.line, 1)
-wire(DetailNotesBtn, C.card, C.cardHot)
+round(DT.DetailNotesBtn, 11)
+outline(DT.DetailNotesBtn, C.line, 1)
+wire(DT.DetailNotesBtn, C.card, C.cardHot)
 
-local DetailExecute = button(Detail, {
+DT.DetailExecute = button(Detail, {
     Size=UDim2.new(1,-32,0,50), Position=UDim2.new(0,16,1,-100),
     BackgroundColor3=C.electric, Text="🎃  CAST SPELL  (EXECUTE)",
     TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=13, ZIndex=63,
 })
-round(DetailExecute, 14)
-fillGradient(DetailExecute, C.electric, C.royal, 0)
-glow(DetailExecute, 160, C.electric, 0.78, UDim2.new(0.5,-80,0.5,-80))
-wire(DetailExecute, C.electric, C.royal)
+round(DT.DetailExecute, 14)
+fillGradient(DT.DetailExecute, C.electric, C.royal, 0)
+glow(DT.DetailExecute, 160, C.electric, 0.78, UDim2.new(0.5,-80,0.5,-80))
+wire(DT.DetailExecute, C.electric, C.royal)
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- SCRIPT EXECUTION ENGINE
@@ -1407,8 +1410,8 @@ local function openDetail(data)
     if not data then return end
     CurrentScript = data
     detailToken = detailToken + 1
-    DetailTitle.Text = data.N
-    DetailMeta.Text  = (data.Cat or "Universal"):upper().."   /   "..(data.New and "🔥 NEW" or "READY").."   /   DELTA COMPATIBLE"
+    DT.DetailTitle.Text = data.N
+    DT.DetailMeta.Text  = (data.Cat or "Universal"):upper().."   /   "..(data.New and "🔥 NEW" or "READY").."   /   DELTA COMPATIBLE"
 
     local desc = data.F or ("Script for "..data.N..". Delta compatible. Works on mobile and PC.")
     local meta = ScriptMeta and ScriptMeta[data.N]
@@ -1421,20 +1424,20 @@ local function openDetail(data)
         if meta.tested then desc = desc.."\nTested: "..meta.tested end
         if meta.added  then desc = desc.."\nAdded: "..meta.added end
     end
-    DetailDesc.Text = desc
+    DT.DetailDesc.Text = desc
 
-    DetailNewBadge.Visible = data.New == true
+    DT.DetailNewBadge.Visible = data.New == true
     local execd = Persist.totalExecs[data.N] or 0
-    DetailExecCount.Text = execd > 0 and ("You've cast this "..execd.." time"..(execd>1 and "s" or "")) or "Never cast yet"
-    DetailFav.Text = has(Persist.favorites, data.N) and "★  FAVORITED" or "★  FAVORITE"
-    DetailFav.TextColor3 = has(Persist.favorites, data.N) and C.yellow or C.muted
-    DetailPin.Text = has(Persist.pinned, data.N) and "◆  PINNED" or "◆  PIN"
-    DetailPin.TextColor3 = has(Persist.pinned, data.N) and C.ice or C.muted
+    DT.DetailExecCount.Text = execd > 0 and ("You've cast this "..execd.." time"..(execd>1 and "s" or "")) or "Never cast yet"
+    DT.DetailFav.Text = has(Persist.favorites, data.N) and "★  FAVORITED" or "★  FAVORITE"
+    DT.DetailFav.TextColor3 = has(Persist.favorites, data.N) and C.yellow or C.muted
+    DT.DetailPin.Text = has(Persist.pinned, data.N) and "◆  PINNED" or "◆  PIN"
+    DT.DetailPin.TextColor3 = has(Persist.pinned, data.N) and C.ice or C.muted
     -- icon initials
     local words = {}
     for w in data.N:gmatch("%S+") do table.insert(words, w) end
-    DetailIconLbl.Text = words[1] and string.sub(words[1],1,1):upper() or "▶"
-    DetailScroll.CanvasPosition = Vector2.new(0,0)
+    DT.DetailIconLbl.Text = words[1] and string.sub(words[1],1,1):upper() or "▶"
+    DT.DetailScroll.CanvasPosition = Vector2.new(0,0)
 
     play("slide")
     Detail.Visible = true
@@ -1442,51 +1445,51 @@ local function openDetail(data)
     tw(Detail, 0.32, {Position=UDim2.new(0,0,0,62)})
 end
 
-DetailBack.MouseButton1Click:Connect(closeDetail)
+DT.DetailBack.MouseButton1Click:Connect(closeDetail)
 
-DetailFav.MouseButton1Click:Connect(function()
+DT.DetailFav.MouseButton1Click:Connect(function()
     if not CurrentScript then return end
     play("tap")
     local on = flip(Persist.favorites, CurrentScript.N)
-    DetailFav.Text = on and "★  FAVORITED" or "★  FAVORITE"
-    DetailFav.TextColor3 = on and C.yellow or C.muted
-    spring(DetailFav, 0.2, {BackgroundColor3 = on and Color3.fromRGB(70,48,8) or C.card})
-    task.delay(0.3, function() tw(DetailFav, 0.2, {BackgroundColor3=C.card}) end)
+    DT.DetailFav.Text = on and "★  FAVORITED" or "★  FAVORITE"
+    DT.DetailFav.TextColor3 = on and C.yellow or C.muted
+    spring(DT.DetailFav, 0.2, {BackgroundColor3 = on and Color3.fromRGB(70,48,8) or C.card})
+    task.delay(0.3, function() tw(DT.DetailFav, 0.2, {BackgroundColor3=C.card}) end)
     saveUsageFile()
     toast(on and "Added to Favorites" or "Removed from Favorites", CurrentScript.N, C.yellow)
 end)
 
-DetailPin.MouseButton1Click:Connect(function()
+DT.DetailPin.MouseButton1Click:Connect(function()
     if not CurrentScript then return end
     play("tap")
     local on = flip(Persist.pinned, CurrentScript.N)
-    DetailPin.Text = on and "◆  PINNED" or "◆  PIN"
-    DetailPin.TextColor3 = on and C.ice or C.muted
+    DT.DetailPin.Text = on and "◆  PINNED" or "◆  PIN"
+    DT.DetailPin.TextColor3 = on and C.ice or C.muted
     saveUsageFile()
     toast(on and "Pinned" or "Unpinned", CurrentScript.N, C.ice)
 end)
 
-DetailCopyBtn.MouseButton1Click:Connect(function()
+DT.DetailCopyBtn.MouseButton1Click:Connect(function()
     if not CurrentScript then return end
     play("tap")
     setClip(CurrentScript.S)
     toast("Copied", "Script code copied to clipboard.", C.green)
-    DetailCopyBtn.Text = "✓  COPIED!"
-    DetailCopyBtn.TextColor3 = C.green
+    DT.DetailCopyBtn.Text = "✓  COPIED!"
+    DT.DetailCopyBtn.TextColor3 = C.green
     task.delay(2, function()
-        if DetailCopyBtn then
-            DetailCopyBtn.Text = "⎘  COPY SCRIPT CODE"
-            DetailCopyBtn.TextColor3 = C.ice
+        if DT.DetailCopyBtn then
+            DT.DetailCopyBtn.Text = "⎘  COPY SCRIPT CODE"
+            DT.DetailCopyBtn.TextColor3 = C.ice
         end
     end)
 end)
 
-DetailNotesBtn.MouseButton1Click:Connect(function()
+DT.DetailNotesBtn.MouseButton1Click:Connect(function()
     play("tap")
     if CurrentScript and openNotes then openNotes(CurrentScript) end
 end)
 
-DetailExecute.MouseButton1Click:Connect(function()
+DT.DetailExecute.MouseButton1Click:Connect(function()
     execScript(CurrentScript)
 end)
 
@@ -2299,7 +2302,7 @@ end)
 -- ════════════════════════════════════════════════════════════════════════════
 -- LAUNCH SEQUENCE (HALLOWEEN INTRO)
 -- ════════════════════════════════════════════════════════════════════════════
-local LaunchCurtain = frame(GUI, {
+LC.LaunchCurtain = frame(GUI, {
     Name             = "LP10LaunchCurtain",
     Size             = UDim2.fromScale(1,1),
     Position         = UDim2.fromScale(0,0),
@@ -2307,33 +2310,33 @@ local LaunchCurtain = frame(GUI, {
     Active           = true,
     ZIndex           = 200,
 })
-fillGradient(LaunchCurtain, Color3.fromRGB(56,18,40), C.bg, 90)
+fillGradient(LC.LaunchCurtain, Color3.fromRGB(56,18,40), C.bg, 90)
 
-local LGlow1 = new("ImageLabel", LaunchCurtain, {
+LC.LGlow1 = new("ImageLabel", LC.LaunchCurtain, {
     Image=GLOW_IMG, ImageColor3=Color3.fromRGB(255,110,20), ImageTransparency=0.74,
     BackgroundTransparency=1, Size=UDim2.fromOffset(500,500),
     Position=UDim2.new(0.5,-250,0.5,-250), ZIndex=201,
 })
-local LGlow2 = new("ImageLabel", LaunchCurtain, {
+LC.LGlow2 = new("ImageLabel", LC.LaunchCurtain, {
     Image=GLOW_IMG, ImageColor3=Color3.fromRGB(190,105,45), ImageTransparency=0.82,
     BackgroundTransparency=1, Size=UDim2.fromOffset(340,340),
     Position=UDim2.new(0.85,-170,0.85,-170), ZIndex=201,
 })
-local LGlow3 = new("ImageLabel", LaunchCurtain, {
+LC.LGlow3 = new("ImageLabel", LC.LaunchCurtain, {
     Image=GLOW_IMG, ImageColor3=Color3.fromRGB(90,220,50), ImageTransparency=0.88,
     BackgroundTransparency=1, Size=UDim2.fromOffset(280,280),
     Position=UDim2.new(0.15,-140,0.15,-140), ZIndex=201,
 })
 
-local LaunchCore = frame(LaunchCurtain, {
+LC.LaunchCore = frame(LC.LaunchCurtain, {
     Size             = UDim2.fromOffset(400,250),
     Position         = UDim2.new(0.5,-200,0.5,-125),
     BackgroundColor3 = C.panel,
     ZIndex           = 202,
 })
-round(LaunchCore, 24)
-outline(LaunchCore, C.electric, 1.4)
-fillGradient(LaunchCore, Color3.fromRGB(64,26,10), C.panel, 135)
+round(LC.LaunchCore, 24)
+outline(LC.LaunchCore, C.electric, 1.4)
+fillGradient(LC.LaunchCore, Color3.fromRGB(64,26,10), C.panel, 135)
 
 -- plain labels (not part of the glow animation so they fade cleanly)
 local function plain(parent, values)
@@ -2342,42 +2345,47 @@ local function plain(parent, values)
     return obj
 end
 
-local LaunchPumpkin = plain(LaunchCore, {
+LC.LaunchPumpkin = plain(LC.LaunchCore, {
     Size=UDim2.fromOffset(90,72), Position=UDim2.new(0.5,-45,0,8),
     Text="🎃", TextSize=58, ZIndex=203,
 })
-local LaunchTitle = plain(LaunchCore, {
+LC.LaunchTitle = plain(LC.LaunchCore, {
     Size=UDim2.new(1,-32,0,40), Position=UDim2.fromOffset(16,80),
     Text="LP10 UNIVERSAL", TextColor3=C.electric,
     Font=Enum.Font.Creepster, TextSize=36, ZIndex=203,
 })
-new("UIStroke", LaunchTitle, {Color=Color3.new(0,0,0), Thickness=2})
-plain(LaunchCore, {
+new("UIStroke", LC.LaunchTitle, {Color=Color3.new(0,0,0), Thickness=2})
+plain(LC.LaunchCore, {
     Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,122),
     Text="🎃  HALLOWEEN UPDATE  🎃", TextColor3=C.violet,
     Font=Enum.Font.GothamBold, TextSize=11, ZIndex=203,
 })
-local LaunchStatus = plain(LaunchCore, {
+LC.LaunchStatus = plain(LC.LaunchCore, {
     Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,148),
     Text="SUMMONING SPIRITS…", TextColor3=C.ice,
     Font=Enum.Font.GothamSemibold, TextSize=9, ZIndex=203,
 })
-local LaunchTrack = frame(LaunchCore, {
+LC.LaunchTrack = frame(LC.LaunchCore, {
     Size=UDim2.new(1,-48,0,6), Position=UDim2.fromOffset(24,176),
     BackgroundColor3=Color3.fromRGB(44,22,22), ZIndex=203,
 })
-round(LaunchTrack, 3)
-local LaunchFill = frame(LaunchTrack, {
+round(LC.LaunchTrack, 3)
+LC.LaunchFill = frame(LC.LaunchTrack, {
     Size=UDim2.new(0,0,1,0), BackgroundColor3=C.electric, ZIndex=204,
 })
-round(LaunchFill, 3)
-fillGradient(LaunchFill, C.electric, C.green, 0)
-plain(LaunchCore, {
-    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,202),
+round(LC.LaunchFill, 3)
+fillGradient(LC.LaunchFill, C.electric, C.green, 0)
+LC.LaunchPct = plain(LC.LaunchCore, {
+    Size=UDim2.new(1,-48,0,14), Position=UDim2.fromOffset(24,184),
+    Text="0%", TextColor3=C.cyan, TextXAlignment=Enum.TextXAlignment.Right,
+    Font=Enum.Font.GothamBold, TextSize=9, ZIndex=203,
+})
+plain(LC.LaunchCore, {
+    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,214),
     Text=SCRIPT_COUNT.." SCRIPTS  /  HALLOWEEN EDITION  /  ULTIMATE v8",
     TextColor3=C.muted, Font=Enum.Font.GothamBold, TextSize=8, ZIndex=203,
 })
-local LaunchFlash = frame(LaunchCurtain, {
+LC.LaunchFlash = frame(LC.LaunchCurtain, {
     Size=UDim2.fromScale(1,1), BackgroundColor3=C.violet,
     BackgroundTransparency=1, ZIndex=215,
 })
@@ -2398,14 +2406,14 @@ local function fadeAll(root, dur)
 end
 
 local function launchFlash()
-    LaunchFlash.BackgroundTransparency = 0.55
-    tw(LaunchFlash, 0.45, {BackgroundTransparency=1})
+    LC.LaunchFlash.BackgroundTransparency = 0.55
+    tw(LC.LaunchFlash, 0.45, {BackgroundTransparency=1})
 end
 
 local function launchBat()
-    if not (LaunchCurtain and LaunchCurtain.Parent) then return end
+    if not (LC.LaunchCurtain and LC.LaunchCurtain.Parent) then return end
     local y = math.random(8, 88) / 100
-    local bat = new("TextLabel", LaunchCurtain, {
+    local bat = new("TextLabel", LC.LaunchCurtain, {
         Size=UDim2.fromOffset(34,34), AnchorPoint=Vector2.new(0.5,0.5),
         Position=UDim2.new(-0.05,0,y,0), BackgroundTransparency=1,
         Text="🦇", TextSize=math.random(20,34), ZIndex=210,
@@ -2432,13 +2440,44 @@ local function openMain()
 
     -- ambient intro animation
     task.spawn(function()
-        while LaunchCurtain and LaunchCurtain.Parent do
-            sine(LGlow1, 1.4, {ImageTransparency=0.82})
-            tw(LaunchPumpkin, 0.5, {Rotation=9}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+        while LC.LaunchCurtain and LC.LaunchCurtain.Parent do
+            sine(LC.LGlow1, 1.4, {ImageTransparency=0.82})
+            tw(LC.LaunchPumpkin, 0.5, {Rotation=9}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
             task.wait(0.5)
-            tw(LaunchPumpkin, 0.5, {Rotation=-9}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-            sine(LGlow1, 1.4, {ImageTransparency=0.72})
+            tw(LC.LaunchPumpkin, 0.5, {Rotation=-9}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            sine(LC.LGlow1, 1.4, {ImageTransparency=0.72})
             task.wait(0.5)
+        end
+    end)
+    -- live percentage that follows the progress bar
+    task.spawn(function()
+        while LC.LaunchCurtain and LC.LaunchCurtain.Parent do
+            pcall(function()
+                local p = math.floor(math.clamp(LC.LaunchFill.Size.X.Scale, 0, 1) * 100 + 0.5)
+                LC.LaunchPct.Text = p.."%"
+            end)
+            task.wait(0.05)
+        end
+    end)
+    -- rising embers behind the loading card
+    task.spawn(function()
+        local glyphs = {"🔥","✨","🕯️","🍬"}
+        while LC.LaunchCurtain and LC.LaunchCurtain.Parent do
+            pcall(function()
+                local x = math.random(5, 95) / 100
+                local e = new("TextLabel", LC.LaunchCurtain, {
+                    Size=UDim2.fromOffset(24,24), AnchorPoint=Vector2.new(0.5,0.5),
+                    Position=UDim2.new(x,0,1.05,0), BackgroundTransparency=1,
+                    Text=glyphs[math.random(1,#glyphs)], TextSize=math.random(12,22), ZIndex=204,
+                })
+                local dur = math.random(20,32) / 10
+                TweenService:Create(e, TweenInfo.new(dur, Enum.EasingStyle.Sine), {
+                    Position = UDim2.new(math.clamp(x + math.random(-10,10)/100, 0.02, 0.98), 0, -0.1, 0),
+                    TextTransparency = 1,
+                }):Play()
+                task.delay(dur + 0.1, function() pcall(function() e:Destroy() end) end)
+            end)
+            task.wait(0.18)
         end
     end)
     task.spawn(function()
@@ -2449,27 +2488,27 @@ local function openMain()
     end)
 
     task.spawn(function()
-        LaunchStatus.Text = "SUMMONING SPIRITS…"
-        tw(LaunchFill, 0.9, {Size=UDim2.fromScale(0.40,1)}, Enum.EasingStyle.Quart)
+        LC.LaunchStatus.Text = "SUMMONING SPIRITS…"
+        tw(LC.LaunchFill, 0.9, {Size=UDim2.fromScale(0.40,1)}, Enum.EasingStyle.Quart)
         task.wait(0.8)
-        LaunchStatus.Text = "CARVING PUMPKINS…"
+        LC.LaunchStatus.Text = "CARVING PUMPKINS…"
         launchFlash()
-        tw(LaunchFill, 0.7, {Size=UDim2.fromScale(0.72,1)}, Enum.EasingStyle.Quart)
+        tw(LC.LaunchFill, 0.7, {Size=UDim2.fromScale(0.72,1)}, Enum.EasingStyle.Quart)
         task.wait(0.7)
-        LaunchStatus.Text = "LOADING "..SCRIPT_COUNT.." SCRIPTS…"
-        tw(LaunchFill, 0.6, {Size=UDim2.fromScale(1,1)}, Enum.EasingStyle.Quart)
+        LC.LaunchStatus.Text = "LOADING "..SCRIPT_COUNT.." SCRIPTS…"
+        tw(LC.LaunchFill, 0.6, {Size=UDim2.fromScale(1,1)}, Enum.EasingStyle.Quart)
         task.wait(0.65)
-        LaunchStatus.Text = "HAPPY HALLOWEEN 🎃"
+        LC.LaunchStatus.Text = "HAPPY HALLOWEEN 🎃"
         launchFlash()
         task.wait(0.5)
-        fadeAll(LaunchCore, 0.3)
-        tw(LGlow1, 0.3, {ImageTransparency=1})
-        tw(LGlow2, 0.3, {ImageTransparency=1})
-        tw(LGlow3, 0.3, {ImageTransparency=1})
-        tw(LaunchCurtain, 0.4, {BackgroundTransparency=1})
+        fadeAll(LC.LaunchCore, 0.3)
+        tw(LC.LGlow1, 0.3, {ImageTransparency=1})
+        tw(LC.LGlow2, 0.3, {ImageTransparency=1})
+        tw(LC.LGlow3, 0.3, {ImageTransparency=1})
+        tw(LC.LaunchCurtain, 0.4, {BackgroundTransparency=1})
         task.wait(0.45)
-        if LaunchCurtain and LaunchCurtain.Parent then
-            LaunchCurtain:Destroy()
+        if LC.LaunchCurtain and LC.LaunchCurtain.Parent then
+            LC.LaunchCurtain:Destroy()
         end
     end)
 end
@@ -3630,9 +3669,24 @@ pcall(function()
 end)
 
 CurrentPage = Persist.page or "Home"
-applyLayout()
-refresh()
-openMain()
+local function bootStep(name, fn)
+    local ok, err = pcall(fn)
+    if not ok then
+        warn("[LP10 Halloween] "..name.." failed: "..tostring(err))
+        pcall(function() toast("⚠ "..name, tostring(err):sub(1,70), C.red) end)
+    end
+    return ok
+end
+bootStep("Layout",  function() applyLayout() end)
+bootStep("Refresh", function() refresh() end)
+bootStep("Launch",  function() openMain() end)
+-- if the intro curtain ever fails, never leave the user with an empty screen
+task.delay(8, function()
+    pcall(function()
+        if Main and Main.Parent and not Main.Visible then Main.Visible = true end
+        if LC.LaunchCurtain and LC.LaunchCurtain.Parent then LC.LaunchCurtain:Destroy() end
+    end)
+end)
 
 task.delay(2.60, function()
     toast("🎃 Happy Halloween", SCRIPT_COUNT.." scripts risen. The spirits are awake.", C.electric)
