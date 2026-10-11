@@ -1,6 +1,6 @@
 --[[
     LP10 HUB  |  BLOX FRUITS  🎃
-    Full farming script on the new LP10 Halloween UI (sidebar tabs + checkbox rows).
+    Full farming script on the LP10 Halloween UI (sidebar tabs + checkbox rows + Halloween intro).
     Sea 1 / Sea 2 / Sea 3.  RightShift (PC) or the pumpkin button shows / hides the menu.
 ]]
 
@@ -2299,6 +2299,8 @@ local lib = (function()
         HubName = "LP10 HUB",
         GuiName = "LP10_HalloweenHub",
         ToggleKey = Enum.KeyCode.RightShift,   -- PC: show / hide the window
+        Intro = true,                          -- Halloween loading intro
+        Lightning = true,
         W = 440,
         H = 262,
     }
@@ -2315,8 +2317,10 @@ local lib = (function()
         witch = Color3.fromRGB(176, 96, 255),
         text = Color3.fromRGB(255, 238, 215),
         muted = Color3.fromRGB(176, 130, 100),
+        slime = Color3.fromRGB(120, 255, 70),
         black = Color3.fromRGB(0, 0, 0),
     }
+    local rng = Random.new()
 
     local function New(className, parent, props)
         local o = Instance.new(className)
@@ -2404,7 +2408,7 @@ local lib = (function()
     local Toggle = New("Frame", ScreenGui, {
         Name = "PumpkinToggle", Size = UDim2.fromOffset(44, 44),
         Position = UDim2.new(0, 14, 0.32, 0), BackgroundColor3 = C.panel,
-        BorderSizePixel = 0, Active = true, ZIndex = 50,
+        BorderSizePixel = 0, Active = true, ZIndex = 50, Visible = false,
     })
     Corner(Toggle, 22)
     local ToggleStroke = Stroke(Toggle, C.orange, 2, 0.05)
@@ -2943,8 +2947,16 @@ local lib = (function()
                 UpdateText() Style()
                 if next(picked) ~= nil then task.defer(SafeCall, opts.Callback, Snapshot()) end
             else
-                if type(default) == "number" then default = options[default] end
-                if default ~= nil and Has(tostring(default)) then Choose(tostring(default)) else UpdateText() end
+                if type(default) == "number" then
+                    -- index default: only SELECT it (like Banana); firing it would switch on
+                    -- movement-lock flags (e.g. Select NPCs -> Auto Tween to NPC) and freeze the player
+                    default = options[default]
+                    if default ~= nil then Choose(tostring(default), true) else UpdateText() end
+                elseif default ~= nil and Has(tostring(default)) then
+                    Choose(tostring(default))
+                else
+                    UpdateText()
+                end
             end
 
             local api = {}
@@ -3153,6 +3165,178 @@ local lib = (function()
     end
 
     ----------------------------------------------------------------
+    -- HALLOWEEN INTRO / LOADING
+    ----------------------------------------------------------------
+    local function FadeOut(root, duration)
+        for _, d in ipairs(root:GetDescendants()) do
+            if d:IsA("TextLabel") then
+                Play(d, duration, {TextTransparency = 1, TextStrokeTransparency = 1})
+            elseif d:IsA("Frame") then
+                Play(d, duration, {BackgroundTransparency = 1})
+            elseif d:IsA("UIStroke") then
+                Play(d, duration, {Transparency = 1})
+            end
+        end
+        if root:IsA("Frame") then
+            Play(root, duration, {BackgroundTransparency = 1})
+        end
+    end
+
+    local function PlayIntro(onDone)
+        local overlay = New("Frame", ScreenGui, {
+            Name = "HalloweenIntro",
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = C.black,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Active = true,
+            ZIndex = 100,
+        })
+        New("UIGradient", overlay, {
+            Color = ColorSequence.new(Color3.fromRGB(46, 14, 52), Color3.fromRGB(4, 2, 6)),
+            Rotation = 90,
+        })
+        Play(overlay, 0.5, {BackgroundTransparency = 0.04})
+
+        local skipped = false
+        local skip = New("TextButton", overlay, {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            ZIndex = 101,
+        })
+        skip.MouseButton1Click:Connect(function() skipped = true end)
+
+        -- flying bats
+        task.spawn(function()
+            while overlay and overlay.Parent and not skipped do
+                local y = rng:NextNumber(0.08, 0.85)
+                local bat = New("TextLabel", overlay, {
+                    Size = UDim2.fromOffset(30, 30),
+                    AnchorPoint = Vector2.new(0.5, 0.5),
+                    Position = UDim2.new(-0.05, 0, y, 0),
+                    BackgroundTransparency = 1,
+                    Text = "🦇",
+                    TextSize = rng:NextInteger(20, 34),
+                    ZIndex = 102,
+                })
+                Play(bat, rng:NextNumber(1.6, 2.6), {
+                    Position = UDim2.new(1.05, 0, y + rng:NextNumber(-0.15, 0.15), 0),
+                    Rotation = rng:NextInteger(-25, 25),
+                }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                task.delay(3, function() if bat then bat:Destroy() end end)
+                task.wait(0.25)
+            end
+        end)
+
+        -- pumpkin
+        local pumpkin = New("TextLabel", overlay, {
+            Size = UDim2.fromOffset(130, 130),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.38, 0),
+            BackgroundTransparency = 1,
+            Text = "🎃",
+            TextSize = 96,
+            ZIndex = 103,
+        })
+        local pumpkinScale = New("UIScale", pumpkin, {Scale = 0})
+        Play(pumpkinScale, 0.7, {Scale = 1}, Enum.EasingStyle.Back)
+        task.spawn(function()
+            while pumpkin and pumpkin.Parent do
+                Play(pumpkin, 0.6, {Rotation = 8}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                task.wait(0.6)
+                if not (pumpkin and pumpkin.Parent) then break end
+                Play(pumpkin, 0.6, {Rotation = -8}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                task.wait(0.6)
+            end
+        end)
+
+        -- title (typewriter)
+        local title = New("TextLabel", overlay, {
+            Size = UDim2.new(1, 0, 0, 56),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.58, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            TextColor3 = C.orange,
+            Font = Enum.Font.Creepster,
+            TextSize = 52,
+            ZIndex = 103,
+        })
+        New("UIStroke", title, {Color = C.black, Thickness = 2.5})
+
+        local sub = New("TextLabel", overlay, {
+            Size = UDim2.new(1, 0, 0, 22),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.66, 0),
+            BackgroundTransparency = 1,
+            Text = "🎃  HALLOWEEN UPDATE  🎃",
+            TextColor3 = C.witch,
+            TextTransparency = 1,
+            Font = Enum.Font.GothamBlack,
+            TextSize = 15,
+            ZIndex = 103,
+        })
+
+        local status = New("TextLabel", overlay, {
+            Size = UDim2.new(1, 0, 0, 16),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.74, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            TextColor3 = C.muted,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 11,
+            ZIndex = 103,
+        })
+
+        local barBack = New("Frame", overlay, {
+            Size = UDim2.fromOffset(220, 8),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.80, 0),
+            BackgroundColor3 = Color3.fromRGB(30, 16, 30),
+            BorderSizePixel = 0,
+            ZIndex = 103,
+        })
+        Corner(barBack, 4)
+        Stroke(barBack, C.orange, 1, 0.3)
+        local barFill = New("Frame", barBack, {
+            Size = UDim2.new(0, 0, 1, 0),
+            BackgroundColor3 = C.orange,
+            BorderSizePixel = 0,
+            ZIndex = 104,
+        })
+        Corner(barFill, 4)
+        New("UIGradient", barFill, {Color = ColorSequence.new(C.orange, C.slime), Rotation = 0})
+
+        local name = string.upper(Config.HubName)
+        for i = 1, #name do
+            if skipped then break end
+            title.Text = string.sub(name, 1, i)
+            task.wait(0.07)
+        end
+        title.Text = name
+        Play(sub, 0.4, {TextTransparency = 0})
+        if Config.Lightning then
+            Play(overlay, 0.05, {BackgroundColor3 = C.purple})
+            task.delay(0.1, function() Play(overlay, 0.3, {BackgroundColor3 = C.black}) end)
+        end
+
+        Play(barFill, 2.4, {Size = UDim2.new(1, 0, 1, 0)}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+        local steps = {"Summoning spirits...", "Carving pumpkins...", "Waking the bats...", "Brewing potions...", "Happy Halloween! 🎃"}
+        for _, text in ipairs(steps) do
+            if skipped then break end
+            status.Text = text
+            task.wait(0.5)
+        end
+
+        FadeOut(overlay, 0.5)
+        task.wait(0.55)
+        overlay:Destroy()
+        if onDone then onDone() end
+    end
+
+    ----------------------------------------------------------------
     -- PUBLIC API (compat with the farming script)
     ----------------------------------------------------------------
     local Lib = {}
@@ -3193,10 +3377,20 @@ local lib = (function()
     end
     _G.LP10HalloweenLibrary = Lib
 
-    Toggle.Visible = true
-    Toggle.Size = UDim2.fromOffset(0, 0)
-    Play(Toggle, 0.4, {Size = UDim2.fromOffset(44, 44)}, Enum.EasingStyle.Back)
-    SetOpen(true)
+    local function Ready()
+        Toggle.Visible = true
+        Toggle.Size = UDim2.fromOffset(0, 0)
+        Play(Toggle, 0.4, {Size = UDim2.fromOffset(44, 44)}, Enum.EasingStyle.Back)
+        SetOpen(true)
+    end
+    if Config.Intro then
+        task.spawn(function()
+            local ok, err = pcall(PlayIntro, Ready)
+            if not ok then warn("[LP10 HUB] intro error: " .. tostring(err)) Ready() end
+        end)
+    else
+        Ready()
+    end
 
     print("🎃 LP10 HUB Halloween UI loaded.")
     return Lib
