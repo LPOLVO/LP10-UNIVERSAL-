@@ -1,3 +1,9 @@
+--[[
+    LP10 HUB  |  BLOX FRUITS  🎃
+    Full farming script on the new LP10 Halloween UI (sidebar tabs + checkbox rows).
+    Sea 1 / Sea 2 / Sea 3.  RightShift (PC) or the pumpkin button shows / hides the menu.
+]]
+
 local function geniter(f, s, c)
 	if type(f) ~= "function" then
 		local mt = getmetatable(f)
@@ -2276,11 +2282,928 @@ do
 	end
 end
 
-local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloxfruitsnokey/Banana/refs/heads/main/Banana/ui.luau"))()
+local lib = (function()
+    ----------------------------------------------------------------
+    -- LP10 HUB | HALLOWEEN UI  (sidebar tabs + group boxes + checkbox rows)
+    -- Layout inspired by the Banana-style menu, rebuilt from scratch:
+    --   smaller window · Halloween colors · pumpkin open/close button
+    -- Same API the farming script already uses:
+    --   lib:CreateWindow{Title,Subtitle} -> :AddTab(name) -> :AddLeftGroupbox(name)
+    --   group:AddToggle / AddButton / AddLabel / AddDropdown / AddSlider / AddInput
+    ----------------------------------------------------------------
+    local TweenService = game:GetService("TweenService")
+    local UIS = game:GetService("UserInputService")
+    local CoreGui = game:GetService("CoreGui")
+
+    local Config = {
+        HubName = "LP10 HUB",
+        GuiName = "LP10_HalloweenHub",
+        ToggleKey = Enum.KeyCode.RightShift,   -- PC: show / hide the window
+        W = 440,
+        H = 262,
+    }
+
+    local C = {
+        panel = Color3.fromRGB(12, 7, 16),
+        panelLight = Color3.fromRGB(24, 11, 30),
+        card = Color3.fromRGB(26, 14, 22),
+        cardHot = Color3.fromRGB(58, 26, 18),
+        field = Color3.fromRGB(16, 8, 18),
+        orange = Color3.fromRGB(255, 117, 24),
+        flame = Color3.fromRGB(255, 170, 60),
+        purple = Color3.fromRGB(122, 46, 180),
+        witch = Color3.fromRGB(176, 96, 255),
+        text = Color3.fromRGB(255, 238, 215),
+        muted = Color3.fromRGB(176, 130, 100),
+        black = Color3.fromRGB(0, 0, 0),
+    }
+
+    local function New(className, parent, props)
+        local o = Instance.new(className)
+        for k, v in pairs(props or {}) do o[k] = v end
+        o.Parent = parent
+        return o
+    end
+    local function Corner(p, r) return New("UICorner", p, {CornerRadius = UDim.new(0, r or 8)}) end
+    local function Stroke(p, color, th, tr)
+        return New("UIStroke", p, {Color = color, Thickness = th or 1, Transparency = tr or 0,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+    end
+    local function Play(o, d, props, style, dir)
+        local t = TweenService:Create(o, TweenInfo.new(d, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out), props)
+        t:Play()
+        return t
+    end
+    local function SafeCall(cb, ...)
+        if type(cb) ~= "function" then return true end
+        local ok, err = pcall(cb, ...)
+        if not ok then warn("[LP10 HUB] callback error: " .. tostring(err)) end
+        return ok
+    end
+
+    local Conns = {}
+    local function Track(c) table.insert(Conns, c) return c end
+    local Alive = true
+
+    ----------------------------------------------------------------
+    -- clean previous window (re-execute safe)
+    ----------------------------------------------------------------
+    local Parent = CoreGui
+    pcall(function() if gethui then Parent = gethui() end end)
+    pcall(function()
+        local prev = _G.LP10HalloweenLibrary
+        if type(prev) == "table" and type(prev.Destroy) == "function" then prev.Destroy() end
+    end)
+    pcall(function()
+        local old = Parent:FindFirstChild(Config.GuiName)
+        if old then old:Destroy() end
+    end)
+
+    local ScreenGui = New("ScreenGui", Parent, {
+        Name = Config.GuiName, ResetOnSpawn = false, IgnoreGuiInset = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    })
+
+    ----------------------------------------------------------------
+    -- dragging helper (handle moves target; tap detection optional)
+    ----------------------------------------------------------------
+    local function Draggable(handle, target, onTap)
+        local dragging, dragInput, dragStart, startPos, moved = false, nil, nil, nil, 0
+        handle.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragging, moved = true, 0
+                dragStart, startPos = input.Position, target.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        if onTap and moved < 6 then onTap() end
+                    end
+                end)
+            end
+        end)
+        handle.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+        Track(UIS.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                local d = input.Position - dragStart
+                moved = math.max(moved, math.abs(d.X) + math.abs(d.Y))
+                target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
+                    startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            end
+        end))
+    end
+
+    ----------------------------------------------------------------
+    -- PUMPKIN TOGGLE BUTTON
+    ----------------------------------------------------------------
+    local Toggle = New("Frame", ScreenGui, {
+        Name = "PumpkinToggle", Size = UDim2.fromOffset(44, 44),
+        Position = UDim2.new(0, 14, 0.32, 0), BackgroundColor3 = C.panel,
+        BorderSizePixel = 0, Active = true, ZIndex = 50,
+    })
+    Corner(Toggle, 22)
+    local ToggleStroke = Stroke(Toggle, C.orange, 2, 0.05)
+    New("TextLabel", Toggle, {
+        Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "🎃",
+        TextSize = 24, Font = Enum.Font.GothamBold, ZIndex = 51,
+    })
+
+    ----------------------------------------------------------------
+    -- MAIN WINDOW
+    ----------------------------------------------------------------
+    local Main = New("Frame", ScreenGui, {
+        Name = "LP10Window", Size = UDim2.fromOffset(Config.W, Config.H),
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+        BackgroundColor3 = C.panel, BorderSizePixel = 0, Active = true,
+        ClipsDescendants = true, Visible = false, ZIndex = 5,
+    })
+    Corner(Main, 12)
+    local MainStroke = Stroke(Main, C.orange, 1.5, 0.15)
+    New("UIGradient", Main, {
+        Color = ColorSequence.new(Color3.fromRGB(26, 10, 34), Color3.fromRGB(10, 6, 14)),
+        Rotation = 90,
+    })
+    local Scale = New("UIScale", Main, {Scale = 1})
+
+    local function FitScale()
+        local cam = workspace.CurrentCamera
+        local vp = cam and cam.ViewportSize or Vector2.new(800, 600)
+        return math.clamp(math.min((vp.X - 16) / Config.W, (vp.Y - 16) / Config.H), 0.5, 1)
+    end
+
+    -- header -------------------------------------------------------
+    local Header = New("Frame", Main, {
+        Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Active = true, ZIndex = 6,
+    })
+    New("TextLabel", Header, {
+        Size = UDim2.fromOffset(26, 26), Position = UDim2.fromOffset(4, 2),
+        BackgroundTransparency = 1, Text = "🕸️", TextSize = 20, TextTransparency = 0.25, ZIndex = 7,
+    })
+    local Title = New("TextLabel", Header, {
+        Size = UDim2.fromOffset(150, 18), Position = UDim2.fromOffset(30, 3),
+        BackgroundTransparency = 1, Text = Config.HubName, TextColor3 = C.orange,
+        Font = Enum.Font.GothamBlack, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7,
+    })
+    local SubTitle = New("TextLabel", Header, {
+        Size = UDim2.fromOffset(200, 12), Position = UDim2.fromOffset(31, 21),
+        BackgroundTransparency = 1, Text = "🦇 BLOX FRUITS 🦇", TextColor3 = C.witch,
+        Font = Enum.Font.GothamBold, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7,
+    })
+    local Bat = New("TextLabel", Header, {
+        Size = UDim2.fromOffset(18, 18), Position = UDim2.new(0.45, 0, 0, 8),
+        BackgroundTransparency = 1, Text = "🦇", TextSize = 13, TextTransparency = 0.35, ZIndex = 7,
+    })
+    local Hide = New("TextButton", Header, {
+        Size = UDim2.fromOffset(26, 22), Position = UDim2.new(1, -32, 0, 7),
+        BackgroundColor3 = C.cardHot, AutoButtonColor = false, Text = "–",
+        TextColor3 = C.flame, Font = Enum.Font.GothamBlack, TextSize = 14, ZIndex = 8,
+    })
+    Corner(Hide, 6)
+    Stroke(Hide, C.orange, 1, 0.5)
+    New("Frame", Main, {
+        Size = UDim2.new(1, -16, 0, 1), Position = UDim2.fromOffset(8, 36),
+        BackgroundColor3 = C.orange, BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 6,
+    })
+    Draggable(Header, Main)
+
+    -- sidebar ------------------------------------------------------
+    local SideW = 118
+    local Search = New("TextBox", Main, {
+        Size = UDim2.fromOffset(SideW, 24), Position = UDim2.fromOffset(6, 42),
+        BackgroundColor3 = C.field, Text = "", PlaceholderText = "🔍 Search...",
+        PlaceholderColor3 = C.muted, TextColor3 = C.text, Font = Enum.Font.GothamSemibold,
+        TextSize = 10, ClearTextOnFocus = false, ZIndex = 6,
+    })
+    Corner(Search, 6)
+    Stroke(Search, C.orange, 1, 0.6)
+
+    local TabList = New("ScrollingFrame", Main, {
+        Size = UDim2.fromOffset(SideW, Config.H - 42 - 30 - 24 - 6), Position = UDim2.fromOffset(6, 70),
+        BackgroundColor3 = C.panelLight, BackgroundTransparency = 0.3, BorderSizePixel = 0,
+        ScrollBarThickness = 2, ScrollBarImageColor3 = C.orange,
+        CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 6,
+    })
+    Corner(TabList, 8)
+    New("UIListLayout", TabList, {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder})
+    New("UIPadding", TabList, {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4),
+        PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 3)})
+
+    -- content ------------------------------------------------------
+    local CX = 6 + SideW + 6
+    local Content = New("Frame", Main, {
+        Size = UDim2.fromOffset(Config.W - CX - 6, Config.H - 42 - 30), Position = UDim2.fromOffset(CX, 42),
+        BackgroundTransparency = 1, ZIndex = 6,
+    })
+    local PageTitle = New("TextLabel", Content, {
+        Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Text = "",
+        TextColor3 = C.text, Font = Enum.Font.GothamBlack, TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7,
+    })
+    New("UIPadding", PageTitle, {PaddingLeft = UDim.new(0, 4)})
+    local PageHolder = New("Frame", Content, {
+        Size = UDim2.new(1, 0, 1, -24), Position = UDim2.fromOffset(0, 24),
+        BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 6,
+    })
+
+    -- footer -------------------------------------------------------
+    local Footer = New("TextLabel", Main, {
+        Size = UDim2.new(1, -40, 0, 16), Position = UDim2.new(0, 20, 1, -19),
+        BackgroundTransparency = 1, Text = "🎃 LP10 · HAPPY HALLOWEEN 🦇", TextColor3 = C.muted,
+        Font = Enum.Font.GothamBold, TextSize = 9, ZIndex = 7,
+    })
+    New("TextLabel", Main, {
+        Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, -26, 1, -26),
+        BackgroundTransparency = 1, Text = "🕸️", TextSize = 20, TextTransparency = 0.3,
+        Rotation = 90, ZIndex = 7,
+    })
+
+    ----------------------------------------------------------------
+    -- open / close
+    ----------------------------------------------------------------
+    local Opened = false
+    local function SetOpen(open)
+        Opened = open and true or false
+        if Opened then
+            local fit = FitScale()
+            Main.Visible = true
+            Scale.Scale = fit * 0.9
+            Play(Scale, 0.22, {Scale = fit}, Enum.EasingStyle.Back)
+            ToggleStroke.Color = C.orange
+        else
+            Play(Scale, 0.14, {Scale = FitScale() * 0.9})
+            task.delay(0.15, function()
+                if not Opened and Main and Main.Parent then Main.Visible = false end
+            end)
+            ToggleStroke.Color = C.purple
+        end
+    end
+    Hide.MouseButton1Click:Connect(function() SetOpen(false) end)
+    Draggable(Toggle, Toggle, function() SetOpen(not Opened) end)
+    Track(UIS.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == Config.ToggleKey then SetOpen(not Opened) end
+    end))
+    pcall(function()
+        Track(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            if Opened then Scale.Scale = FitScale() end
+        end))
+    end)
+
+    -- ambient life: floating bat + glowing border
+    task.spawn(function()
+        local t = 0
+        while Alive and Main and Main.Parent do
+            t = t + 1
+            Play(Bat, 3, {Position = UDim2.new(0.45 + 0.2 * ((t % 2 == 0) and 1 or -1), 0, 0, 6 + (t % 3) * 3)},
+                Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            Play(MainStroke, 1.5, {Transparency = (t % 2 == 0) and 0.1 or 0.55}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(3)
+        end
+    end)
+
+    ----------------------------------------------------------------
+    -- NOTIFY (small toast, top right)
+    ----------------------------------------------------------------
+    local ToastHolder = New("Frame", ScreenGui, {
+        Size = UDim2.new(0, 230, 1, -20), Position = UDim2.new(1, -240, 0, 10),
+        BackgroundTransparency = 1, ZIndex = 60,
+    })
+    New("UIListLayout", ToastHolder, {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder})
+
+    local function Notify(opts)
+        if type(opts) ~= "table" then opts = {Title = "LP10 HUB", Description = tostring(opts)} end
+        local toast = New("CanvasGroup", ToastHolder, {
+            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = C.panel, GroupTransparency = 1, ZIndex = 61,
+        })
+        Corner(toast, 9)
+        Stroke(toast, C.orange, 1.5, 0.1)
+        New("UIPadding", toast, {PaddingTop = UDim.new(0, 7), PaddingBottom = UDim.new(0, 7),
+            PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)})
+        New("UIListLayout", toast, {Padding = UDim.new(0, 2)})
+        New("TextLabel", toast, {
+            Size = UDim2.new(1, 0, 0, 14), BackgroundTransparency = 1,
+            Text = "🎃 " .. tostring(opts.Title or "LP10 HUB"), TextColor3 = C.orange,
+            Font = Enum.Font.GothamBlack, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+        })
+        New("TextLabel", toast, {
+            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
+            Text = tostring(opts.Description or opts.Content or ""), TextColor3 = C.text, TextWrapped = true,
+            Font = Enum.Font.GothamSemibold, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+        })
+        Play(toast, 0.25, {GroupTransparency = 0})
+        task.delay(tonumber(opts.Duration) or 4, function()
+            if toast and toast.Parent then
+                Play(toast, 0.3, {GroupTransparency = 1})
+                task.wait(0.32)
+                pcall(function() toast:Destroy() end)
+            end
+        end)
+    end
+
+    ----------------------------------------------------------------
+    -- TABS / GROUPS / ROWS
+    ----------------------------------------------------------------
+    local Tabs = {}
+    local ActiveTab = nil
+    local FeatureCount = 0
+    local countQueued = false
+
+    local function RefreshFooter()
+        if countQueued then return end
+        countQueued = true
+        task.defer(function()
+            countQueued = false
+            if Footer and Footer.Parent then
+                Footer.Text = "🎃 " .. FeatureCount .. " FEATURES · LP10 · HAPPY HALLOWEEN 🦇"
+            end
+        end)
+    end
+
+    local function ApplySearch(tab)
+        if not tab then return end
+        local q = string.lower(Search.Text or "")
+        for _, g in ipairs(tab.Groups) do
+            local any = false
+            local groupHit = q ~= "" and string.find(string.lower(g.Title), q, 1, true) ~= nil
+            for _, r in ipairs(g.Rows) do
+                local vis = q == "" or groupHit or string.find(string.lower(r.Name), q, 1, true) ~= nil
+                r.Frame.Visible = vis
+                any = any or vis
+            end
+            g.Box.Visible = (q == "") or any or groupHit
+        end
+    end
+    Search:GetPropertyChangedSignal("Text"):Connect(function() ApplySearch(ActiveTab) end)
+
+    local function SelectTab(tab)
+        ActiveTab = tab
+        for _, t in ipairs(Tabs) do
+            local on = (t == tab)
+            t.Page.Visible = on
+            t.Bar.Visible = on
+            Play(t.Button, 0.15, {BackgroundTransparency = on and 0.1 or 1,
+                TextColor3 = on and C.flame or C.muted})
+            t.Button.BackgroundColor3 = C.cardHot
+        end
+        PageTitle.Text = tab.Name
+        ApplySearch(tab)
+    end
+
+    local function NameOf(idx, opts, fallback)
+        if type(opts) == "table" and opts.Text then return tostring(opts.Text) end
+        if idx ~= nil and type(idx) ~= "table" then return (tostring(idx):gsub("_", " ")) end
+        return fallback
+    end
+
+    local function LiveValue(api, getter)
+        return setmetatable(api, {__index = function(_, k)
+            if k == "Value" then return getter() end
+            return nil
+        end})
+    end
+
+    local function BuildGroup(tab, title)
+        local group = {Title = tostring(title or ""), Rows = {}}
+        local order = 2
+
+        local Box = New("Frame", tab.Page, {
+            Size = UDim2.new(1, -6, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = C.panelLight, BackgroundTransparency = 0.2, BorderSizePixel = 0,
+            LayoutOrder = #tab.Groups + 1, ZIndex = 7,
+        })
+        Corner(Box, 9)
+        Stroke(Box, C.orange, 1, 0.65)
+        New("UIListLayout", Box, {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder,
+            HorizontalAlignment = Enum.HorizontalAlignment.Center})
+        New("UIPadding", Box, {PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 7),
+            PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6)})
+        New("TextLabel", Box, {
+            Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, Text = "🕯️ " .. group.Title .. " 🕯️",
+            TextColor3 = C.flame, Font = Enum.Font.GothamBlack, TextSize = 11, LayoutOrder = 0, ZIndex = 8,
+        })
+        local line = New("Frame", Box, {
+            Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = C.orange, BorderSizePixel = 0,
+            LayoutOrder = 1, ZIndex = 8,
+        })
+        New("UIGradient", line, {Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})})
+
+        group.Box = Box
+        table.insert(tab.Groups, group)
+
+        local function Row(height, name, countable)
+            local row = New("Frame", Box, {
+                Size = UDim2.new(1, 0, 0, height), BackgroundColor3 = C.card, BorderSizePixel = 0,
+                LayoutOrder = order, ZIndex = 8,
+            })
+            order = order + 1
+            Corner(row, 7)
+            Stroke(row, C.orange, 1, 0.82)
+            table.insert(group.Rows, {Frame = row, Name = tostring(name or "")})
+            if countable ~= false then FeatureCount = FeatureCount + 1 RefreshFooter() end
+            return row
+        end
+
+        local function RowLabel(row, text, rightPad)
+            return New("TextLabel", row, {
+                Size = UDim2.new(1, -(rightPad or 36), 1, 0), Position = UDim2.fromOffset(9, 0),
+                BackgroundTransparency = 1, Text = text, TextColor3 = C.text, Font = Enum.Font.GothamBold,
+                TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 9,
+            })
+        end
+
+        local function Hit(row)
+            return New("TextButton", row, {
+                Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 12,
+            })
+        end
+
+        local G = {}
+
+        -- TOGGLE (checkbox on the right) ---------------------------
+        function G:AddToggle(idx, opts)
+            if type(idx) == "table" then opts, idx = idx, nil end
+            opts = opts or {}
+            local name = NameOf(idx, opts, "Toggle")
+            local row = Row(30, name)
+            RowLabel(row, name, 36)
+            local box = New("Frame", row, {
+                Size = UDim2.fromOffset(18, 18), Position = UDim2.new(1, -27, 0.5, -9),
+                BackgroundColor3 = C.field, BorderSizePixel = 0, ZIndex = 10,
+            })
+            Corner(box, 4)
+            Stroke(box, C.orange, 2, 0)
+            local fill = New("TextLabel", box, {
+                Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.orange, BackgroundTransparency = 1,
+                Text = "", TextColor3 = C.black, Font = Enum.Font.GothamBlack, TextSize = 13, ZIndex = 11,
+            })
+            Corner(fill, 3)
+            local hit = Hit(row)
+            local value = false
+            local function Set(v, silent)
+                value = (v == true)
+                Play(fill, 0.12, {BackgroundTransparency = value and 0 or 1})
+                Play(row, 0.12, {BackgroundColor3 = value and C.cardHot or C.card})
+                fill.Text = value and "✓" or ""
+                if not silent then SafeCall(opts.Callback, value) end
+            end
+            hit.MouseButton1Click:Connect(function() Set(not value) end)
+            if opts.Default == true then
+                Set(true, true)
+                task.defer(SafeCall, opts.Callback, true)
+            end
+            local api = {}
+            function api:SetValue(v) Set(v == true) end
+            function api:GetValue() return value end
+            function api:OnChanged() end
+            return LiveValue(api, function() return value end)
+        end
+
+        -- BUTTON ---------------------------------------------------
+        function G:AddButton(a, b)
+            local opts = type(a) == "table" and a or {Text = a, Func = b}
+            local name = tostring(opts.Text or opts.Name or "Button")
+            local cb = opts.Func or opts.Callback
+            local row = Row(30, name)
+            RowLabel(row, name, 36)
+            New("TextLabel", row, {
+                Size = UDim2.fromOffset(20, 30), Position = UDim2.new(1, -26, 0, 0),
+                BackgroundTransparency = 1, Text = "▶", TextColor3 = C.orange,
+                Font = Enum.Font.GothamBlack, TextSize = 11, ZIndex = 10,
+            })
+            local hit = Hit(row)
+            local function Press()
+                Play(row, 0.08, {BackgroundColor3 = C.cardHot})
+                task.delay(0.15, function()
+                    if row and row.Parent then Play(row, 0.2, {BackgroundColor3 = C.card}) end
+                end)
+                SafeCall(cb)
+            end
+            hit.MouseButton1Click:Connect(Press)
+            local api = {}
+            function api:Press() Press() end
+            return api
+        end
+
+        -- LABEL / PARAGRAPH ---------------------------------------
+        function G:AddLabel(text)
+            if type(text) == "table" then text = text.Text end
+            local row = Row(0, "", false)
+            row.AutomaticSize = Enum.AutomaticSize.Y
+            row.Size = UDim2.new(1, 0, 0, 0)
+            table.remove(group.Rows)   -- labels are not searchable rows
+            table.insert(group.Rows, {Frame = row, Name = tostring(text or "")})
+            New("UIPadding", row, {PaddingTop = UDim.new(0, 7), PaddingBottom = UDim.new(0, 7),
+                PaddingLeft = UDim.new(0, 9), PaddingRight = UDim.new(0, 9)})
+            local lbl = New("TextLabel", row, {
+                Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+                BackgroundTransparency = 1, Text = tostring(text or ""), TextColor3 = C.text,
+                Font = Enum.Font.GothamSemibold, TextSize = 11, TextWrapped = true,
+                TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 9,
+            })
+            local api = {}
+            function api:SetText(t) lbl.Text = t == nil and "" or tostring(t) end
+            function api:SetValue(t) lbl.Text = t == nil and "" or tostring(t) end
+            function api:GetText() return lbl.Text end
+            return api
+        end
+
+        function G:AddParagraph(t, text)
+            return G:AddLabel(tostring(t or "") .. "\n" .. tostring(text or ""))
+        end
+        function G:AddDivider() end
+
+        -- DROPDOWN (expands inside the group) ---------------------
+        function G:AddDropdown(idx, opts)
+            if type(idx) == "table" then opts, idx = idx, nil end
+            opts = opts or {}
+            local name = NameOf(idx, opts, "Dropdown")
+            local multi = opts.Multi == true
+            local options = {}
+            for _, v in ipairs(opts.Values or opts.Options or {}) do table.insert(options, tostring(v)) end
+            local selected, picked, buttons, opened = nil, {}, {}, false
+
+            local row = Row(30, name)
+            row.AutomaticSize = Enum.AutomaticSize.Y
+            row.Size = UDim2.new(1, 0, 0, 30)
+            row.ClipsDescendants = true
+            New("UIListLayout", row, {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3),
+                HorizontalAlignment = Enum.HorizontalAlignment.Center})
+            New("UIPadding", row, {PaddingBottom = UDim.new(0, 5)})
+
+            local head = New("TextButton", row, {
+                Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, Text = "", LayoutOrder = 1, ZIndex = 12,
+            })
+            local lbl = New("TextLabel", head, {
+                Size = UDim2.new(1, -30, 1, 0), Position = UDim2.fromOffset(9, 0), BackgroundTransparency = 1,
+                Text = name, TextColor3 = C.text, Font = Enum.Font.GothamBold, TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 13,
+            })
+            local arrow = New("TextLabel", head, {
+                Size = UDim2.fromOffset(20, 30), Position = UDim2.new(1, -24, 0, 0), BackgroundTransparency = 1,
+                Text = ">", TextColor3 = C.orange, Font = Enum.Font.GothamBlack, TextSize = 13, ZIndex = 13,
+            })
+            local list = New("ScrollingFrame", row, {
+                Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0,
+                Visible = false, LayoutOrder = 2, ScrollBarThickness = 2, ScrollBarImageColor3 = C.orange,
+                CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 12,
+            })
+            New("UIListLayout", list, {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder})
+
+            local function IsOn(v)
+                if multi then return picked[v] == true end
+                return selected == v
+            end
+            local function Snapshot()
+                local c = {}
+                for k, v in pairs(picked) do c[k] = v end
+                return c
+            end
+            local function ShownText()
+                if multi then
+                    local names = {}
+                    for _, v in ipairs(options) do if picked[v] then table.insert(names, v) end end
+                    if #names == 0 then return nil end
+                    return table.concat(names, ", ")
+                end
+                return selected
+            end
+            local function UpdateText()
+                local s = ShownText()
+                lbl.Text = name .. ": " .. (s or "None")
+                arrow.Text = opened and "v" or ">"
+            end
+            local function Style()
+                for v, b in pairs(buttons) do
+                    local on = IsOn(v)
+                    b.BackgroundColor3 = on and C.cardHot or C.field
+                    b.TextColor3 = on and C.flame or C.text
+                end
+            end
+            local function Resize()
+                local n = #options
+                local h = math.min(n * 27, 135)
+                list.Size = UDim2.new(1, -12, 0, h)
+                list.Visible = opened and n > 0
+            end
+            local function Choose(v, silent)
+                if multi then
+                    if picked[v] then picked[v] = nil else picked[v] = true end
+                else
+                    selected = v
+                end
+                UpdateText() Style()
+                if not silent then SafeCall(opts.Callback, multi and Snapshot() or v) end
+            end
+            local function Rebuild()
+                for _, c in ipairs(list:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+                buttons = {}
+                for i, v in ipairs(options) do
+                    local b = New("TextButton", list, {
+                        Size = UDim2.new(1, -4, 0, 24), BackgroundColor3 = C.field, AutoButtonColor = false,
+                        Text = v, TextColor3 = C.text, Font = Enum.Font.GothamSemibold, TextSize = 10,
+                        TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = i, ZIndex = 13,
+                    })
+                    Corner(b, 6)
+                    Stroke(b, C.orange, 1, 0.75)
+                    buttons[v] = b
+                    b.MouseButton1Click:Connect(function()
+                        Choose(v)
+                        if not multi then opened = false UpdateText() Resize() end
+                    end)
+                end
+                Style() Resize()
+            end
+            head.MouseButton1Click:Connect(function()
+                opened = not opened
+                UpdateText() Resize()
+            end)
+            local function Has(v)
+                for _, o in ipairs(options) do if o == v then return true end end
+                return false
+            end
+            Rebuild()
+
+            local default = opts.Default
+            if multi then
+                if type(default) == "table" then
+                    for k, v in pairs(default) do
+                        local key
+                        if type(k) == "number" then key = tostring(v) elseif v then key = tostring(k) end
+                        if key and Has(key) then picked[key] = true end
+                    end
+                end
+                UpdateText() Style()
+                if next(picked) ~= nil then task.defer(SafeCall, opts.Callback, Snapshot()) end
+            else
+                if type(default) == "number" then default = options[default] end
+                if default ~= nil and Has(tostring(default)) then Choose(tostring(default)) else UpdateText() end
+            end
+
+            local api = {}
+            local function SetV(v, silent)
+                if multi then
+                    picked = {}
+                    if type(v) == "table" then
+                        for k, val in pairs(v) do
+                            local key
+                            if type(k) == "number" then key = tostring(val) elseif val then key = tostring(k) end
+                            if key and Has(key) then picked[key] = true end
+                        end
+                    end
+                    UpdateText() Style()
+                    if not silent then SafeCall(opts.Callback, Snapshot()) end
+                else
+                    if v ~= nil and Has(tostring(v)) then Choose(tostring(v), silent)
+                    else selected = nil UpdateText() Style() end
+                end
+            end
+            function api:SetValue(v) SetV(v) end
+            function api:GetValue() if multi then return Snapshot() end return selected end
+            local function SetList(l)
+                options = {}
+                for _, v in ipairs(l or {}) do table.insert(options, tostring(v)) end
+                if not multi and selected ~= nil and not Has(selected) then selected = nil end
+                for k in pairs(picked) do if not Has(k) then picked[k] = nil end end
+                Rebuild() UpdateText()
+            end
+            function api:SetValues(l) SetList(l) end
+            function api:Refresh(l) SetList(l) end
+            return LiveValue(api, function() if multi then return Snapshot() end return selected end)
+        end
+
+        -- SLIDER ---------------------------------------------------
+        function G:AddSlider(idx, opts)
+            if type(idx) == "table" then opts, idx = idx, nil end
+            opts = opts or {}
+            local name = NameOf(idx, opts, "Slider")
+            local min, max = tonumber(opts.Min) or 0, tonumber(opts.Max) or 100
+            if max <= min then max = min + 1 end
+            local rounding = math.max(0, tonumber(opts.Rounding) or 0)
+            local step = 10 ^ -rounding
+            local suffix = opts.Suffix and tostring(opts.Suffix) or ""
+            local value = math.clamp(tonumber(opts.Default) or min, min, max)
+
+            local row = Row(40, name)
+            RowLabel(row, name, 70)
+            local valLbl = New("TextLabel", row, {
+                Size = UDim2.fromOffset(60, 20), Position = UDim2.new(1, -66, 0, 2), BackgroundTransparency = 1,
+                Text = "", TextColor3 = C.flame, Font = Enum.Font.GothamBlack, TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 10,
+            })
+            row:FindFirstChildOfClass("TextLabel").Size = UDim2.new(1, -76, 0, 22)
+            local bar = New("Frame", row, {
+                Size = UDim2.new(1, -20, 0, 6), Position = UDim2.new(0, 10, 0, 28),
+                BackgroundColor3 = C.field, BorderSizePixel = 0, ZIndex = 10,
+            })
+            Corner(bar, 3)
+            local fill = New("Frame", bar, {
+                Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.orange, BorderSizePixel = 0, ZIndex = 11,
+            })
+            Corner(fill, 3)
+            local knob = New("Frame", bar, {
+                Size = UDim2.fromOffset(12, 12), AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0, 0.5), BackgroundColor3 = C.flame, BorderSizePixel = 0, ZIndex = 12,
+            })
+            Corner(knob, 6)
+            local hit = New("TextButton", row, {
+                Size = UDim2.new(1, -8, 0, 22), Position = UDim2.fromOffset(4, 18),
+                BackgroundTransparency = 1, Text = "", ZIndex = 13,
+            })
+
+            local function Fmt(v)
+                if rounding > 0 then return string.format("%." .. rounding .. "f", v) .. suffix end
+                return tostring(math.floor(v + 0.5)) .. suffix
+            end
+            local function Render()
+                local pct = (value - min) / (max - min)
+                fill.Size = UDim2.fromScale(pct, 1)
+                knob.Position = UDim2.fromScale(pct, 0.5)
+                valLbl.Text = Fmt(value)
+            end
+            local function SetV(v, silent)
+                v = math.clamp(tonumber(v) or min, min, max)
+                v = math.floor(v / step + 0.5) * step
+                v = math.clamp(v, min, max)
+                if v == value and not silent then return end
+                value = v
+                Render()
+                if not silent then SafeCall(opts.Callback, value) end
+            end
+            local dragging = false
+            local function FromX(x)
+                local pct = math.clamp((x - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+                SetV(min + pct * (max - min))
+            end
+            hit.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    tab.Page.ScrollingEnabled = false
+                    FromX(input.Position.X)
+                end
+            end)
+            Track(UIS.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch) then
+                    FromX(input.Position.X)
+                end
+            end))
+            Track(UIS.InputEnded:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch) then
+                    dragging = false
+                    tab.Page.ScrollingEnabled = true
+                end
+            end))
+            Render()
+            task.defer(SafeCall, opts.Callback, value)   -- start with the default applied
+            local api = {}
+            function api:SetValue(v) SetV(v) end
+            function api:GetValue() return value end
+            return LiveValue(api, function() return value end)
+        end
+
+        -- INPUT ----------------------------------------------------
+        function G:AddInput(idx, opts)
+            if type(idx) == "table" then opts, idx = idx, nil end
+            opts = opts or {}
+            local name = NameOf(idx, opts, "Input")
+            local row = Row(30, name)
+            RowLabel(row, name, 150)
+            row:FindFirstChildOfClass("TextLabel").Size = UDim2.new(0.4, -9, 1, 0)
+            local box = New("TextBox", row, {
+                Size = UDim2.new(0.6, -14, 0, 22), Position = UDim2.new(0.4, 4, 0.5, -11),
+                BackgroundColor3 = C.field, Text = tostring(opts.Default or ""),
+                PlaceholderText = tostring(opts.Placeholder or "..."), PlaceholderColor3 = C.muted,
+                TextColor3 = C.text, Font = Enum.Font.GothamSemibold, TextSize = 10,
+                ClearTextOnFocus = false, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 11,
+            })
+            Corner(box, 5)
+            Stroke(box, C.orange, 1, 0.55)
+            box.FocusLost:Connect(function() SafeCall(opts.Callback, box.Text) end)
+            local api = {}
+            function api:SetValue(v) box.Text = tostring(v or "") end
+            function api:GetValue() return box.Text end
+            return LiveValue(api, function() return box.Text end)
+        end
+
+        return G
+    end
+
+    local function BuildTab(tab)
+        local T = {}
+        function T:AddLeftGroupbox(name) return BuildGroup(tab, name) end
+        function T:AddRightGroupbox(name) return BuildGroup(tab, name) end
+        function T:Select() SelectTab(tab) end
+        return T
+    end
+
+    local TAB_ICONS = {
+        {"info", "📊"}, {"farm", "⚔️"}, {"setting", "⚙️"}, {"fish", "🎣"},
+        {"quest", "📜"}, {"sea", "🌊"}, {"mirage", "🏝️"}, {"volcano", "🌋"},
+        {"stats", "📈"}, {"fruit", "🍎"}, {"local", "👤"}, {"teleport", "🌀"},
+        {"shop", "🛒"}, {"misc", "🎃"},
+    }
+    local function IconFor(name)
+        local lower = string.lower(tostring(name))
+        for _, p in ipairs(TAB_ICONS) do
+            if string.find(lower, p[1], 1, true) then return p[2] end
+        end
+        return "🎃"
+    end
+
+    local function AddTab(name, icon)
+        local tab = {Name = tostring(name), Groups = {}}
+        icon = icon or IconFor(name)
+
+        tab.Button = New("TextButton", TabList, {
+            Size = UDim2.new(1, 0, 0, 26), BackgroundColor3 = C.cardHot, BackgroundTransparency = 1,
+            AutoButtonColor = false, Text = icon .. "  " .. tab.Name, TextColor3 = C.muted,
+            Font = Enum.Font.GothamBold, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = #Tabs + 1, ZIndex = 7,
+        })
+        Corner(tab.Button, 6)
+        New("UIPadding", tab.Button, {PaddingLeft = UDim.new(0, 9)})
+        tab.Bar = New("Frame", tab.Button, {
+            Size = UDim2.fromOffset(3, 14), Position = UDim2.new(0, -7, 0.5, -7),
+            BackgroundColor3 = C.orange, BorderSizePixel = 0, Visible = false, ZIndex = 8,
+        })
+        Corner(tab.Bar, 2)
+
+        tab.Page = New("ScrollingFrame", PageHolder, {
+            Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
+            ScrollBarThickness = 3, ScrollBarImageColor3 = C.orange, Visible = false,
+            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 7,
+        })
+        New("UIListLayout", tab.Page, {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder})
+        New("UIPadding", tab.Page, {PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 6)})
+
+        table.insert(Tabs, tab)
+        tab.Button.MouseButton1Click:Connect(function() SelectTab(tab) end)
+        if #Tabs == 1 then SelectTab(tab) end
+        return BuildTab(tab)
+    end
+
+    ----------------------------------------------------------------
+    -- PUBLIC API (compat with the farming script)
+    ----------------------------------------------------------------
+    local Lib = {}
+    local pid = game.PlaceId
+    local Sea = (pid == 2753915549 or pid == 85211729168715) and "SEA 1"
+        or (pid == 4442272183 or pid == 79091703265657) and "SEA 2"
+        or (pid == 7449423635 or pid == 100117331123089) and "SEA 3" or nil
+
+    function Lib:CreateWindow(opts)
+        opts = opts or {}
+        if opts.Title then Title.Text = tostring(opts.Title) end
+        local sub = string.upper(tostring(opts.Subtitle or "Blox Fruits"))
+        SubTitle.Text = "🦇 " .. sub .. (Sea and (" · " .. Sea) or "") .. " 🦇"
+        local W = {}
+        function W:AddTab(name, icon)
+            local useIcon = (type(icon) == "string" and not string.find(icon, "rbx", 1, true)) and icon or nil
+            return AddTab(name, useIcon)
+        end
+        function W:Destroy() Lib.Destroy() end
+        return W
+    end
+
+    function Lib.Notify(a, b)
+        Notify((a == Lib) and b or a)
+    end
+    function Lib.ToggleUI() end                 -- window opens by itself
+    function Lib.Toggle() SetOpen(not Opened) end
+    function Lib.Open() SetOpen(true) end
+    function Lib.Close() SetOpen(false) end
+    function Lib.SetHubName(n) Title.Text = tostring(n or Config.HubName) end
+
+    function Lib.Destroy()
+        Alive = false
+        for _, c in ipairs(Conns) do pcall(function() c:Disconnect() end) end
+        Conns = {}
+        pcall(function() ScreenGui:Destroy() end)
+        if _G.LP10HalloweenLibrary == Lib then _G.LP10HalloweenLibrary = nil end
+    end
+    _G.LP10HalloweenLibrary = Lib
+
+    Toggle.Visible = true
+    Toggle.Size = UDim2.fromOffset(0, 0)
+    Play(Toggle, 0.4, {Size = UDim2.fromOffset(44, 44)}, Enum.EasingStyle.Back)
+    SetOpen(true)
+
+    print("🎃 LP10 HUB Halloween UI loaded.")
+    return Lib
+end)()
 local v237 = lib:CreateWindow({
-	Title = "Banana Hub",
-	Subtitle = "Blox Fruit Script",
-	Image = "rbxassetid://5009915795"
+	Title = "LP10 HUB",
+	Subtitle = "Blox Fruits"
 })
 local t15 = {
 	Info = v237:AddTab("Info And Status"),
@@ -2367,7 +3290,7 @@ do
 			while true do
 				wait(1)
 
-				local status = game.Workspace._WorldOrigin.Locations:FindFirstChild("Mirage Island") ~= nil and "âœ…" or "âŒ"
+				local status = game.Workspace._WorldOrigin.Locations:FindFirstChild("Mirage Island") ~= nil and "✅" or "❌"
 
 				if status ~= s1 then
 					v251:SetText("Status: " .. status)
@@ -2384,7 +3307,7 @@ do
 
 	spawn(function()
 		while task.wait(1) do
-			local status = game:GetService("Workspace").Map:FindFirstChild("KitsuneIsland") and "âœ…" or "âŒ"
+			local status = game:GetService("Workspace").Map:FindFirstChild("KitsuneIsland") and "✅" or "❌"
 
 			if status ~= s2 then
 				v254:SetText("Status: " .. status)
@@ -2400,7 +3323,7 @@ do
 
 	task.spawn(function()
 		while task.wait(1) do
-			local status = game.Workspace._WorldOrigin.Locations:FindFirstChild("Prehistoric Island") and "âœ…" or "âŒ"
+			local status = game.Workspace._WorldOrigin.Locations:FindFirstChild("Prehistoric Island") and "✅" or "❌"
 
 			if status ~= s3 then
 				v257:SetText("Status: " .. status)
@@ -2416,7 +3339,7 @@ do
 
 	spawn(function()
 		while wait(1) do
-			local status = game.Workspace._WorldOrigin.Locations:FindFirstChild("Frozen Dimension") and "âœ…" or "âŒ"
+			local status = game.Workspace._WorldOrigin.Locations:FindFirstChild("Frozen Dimension") and "✅" or "❌"
 
 			if status ~= s4 then
 				v260:SetText("Status: " .. status)
@@ -2432,7 +3355,7 @@ do
 	spawn(function()
 		while wait(1) do
 			local response = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("CakePrinceSpawner")
-			local s5 = "Cake Prince: âœ…"
+			local s5 = "Cake Prince: ✅"
 
 			if string.len(response) >= 86 then
 				s5 = "Killed: " .. string.sub(response, 39, 41)
@@ -2451,8 +3374,8 @@ do
 		while wait(1) do
 			local RipIndraTrueForm = game:GetService("ReplicatedStorage"):FindFirstChild("rip_indra True Form")
 
-			RipIndraTrueForm = (RipIndraTrueForm or game:GetService("Workspace").Enemies:FindFirstChild("rip_indra")) and "âœ…"
-			RipIndraTrueForm = RipIndraTrueForm or "âŒ"
+			RipIndraTrueForm = (RipIndraTrueForm or game:GetService("Workspace").Enemies:FindFirstChild("rip_indra")) and "✅"
+			RipIndraTrueForm = RipIndraTrueForm or "❌"
 
 			if RipIndraTrueForm ~= s6 then
 				v266:SetText("Status: " .. RipIndraTrueForm)
@@ -2468,7 +3391,7 @@ do
 
 	spawn(function()
 		while wait(1) do
-			local status = (game:GetService("ReplicatedStorage"):FindFirstChild("Dough King") or game:GetService("Workspace").Enemies:FindFirstChild("Dough King")) and "âœ…" or "âŒ"
+			local status = (game:GetService("ReplicatedStorage"):FindFirstChild("Dough King") or game:GetService("Workspace").Enemies:FindFirstChild("Dough King")) and "✅" or "❌"
 
 			if status ~= s7 then
 				v269:SetText("Status: " .. status)
@@ -2487,7 +3410,7 @@ do
 			local s8 = "Moon: 0/5"
 
 			if MoonTextureId == "http://www.roblox.com/asset/?id=9709149431" then
-				s8 = "Moon: 5/5 (Full Moon) âœ…"
+				s8 = "Moon: 5/5 (Full Moon) ✅"
 			elseif MoonTextureId == "http://www.roblox.com/asset/?id=9709149052" then
 				s8 = "Moon: 4/5"
 			elseif MoonTextureId == "http://www.roblox.com/asset/?id=9709143733" then
@@ -2511,11 +3434,11 @@ do
 			local s9 = "Not Found"
 
 			if game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("LegendarySwordDealer", "1") then
-				s9 = "Shisui âœ…"
+				s9 = "Shisui ✅"
 			elseif game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("LegendarySwordDealer", "2") then
-				s9 = "Wando âœ…"
+				s9 = "Wando ✅"
 			elseif game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("LegendarySwordDealer", "3") then
-				s9 = "Saddi âœ…"
+				s9 = "Saddi ✅"
 			end
 
 			v275:SetText(s9)
@@ -3977,7 +4900,7 @@ do
 		local s12 = ""
 
 		while wait(1) do
-			local v426 = (game:GetService("ReplicatedStorage"):FindFirstChild("Diablo") or game:GetService("ReplicatedStorage"):FindFirstChild("Deandre") or game:GetService("ReplicatedStorage"):FindFirstChild("Urban") or game:GetService("Workspace").Enemies:FindFirstChild("Diablo") or game:GetService("Workspace").Enemies:FindFirstChild("Deandre") or game:GetService("Workspace").Enemies:FindFirstChild("Urban")) and "âœ…" or "âŒ"
+			local v426 = (game:GetService("ReplicatedStorage"):FindFirstChild("Diablo") or game:GetService("ReplicatedStorage"):FindFirstChild("Deandre") or game:GetService("ReplicatedStorage"):FindFirstChild("Urban") or game:GetService("Workspace").Enemies:FindFirstChild("Diablo") or game:GetService("Workspace").Enemies:FindFirstChild("Deandre") or game:GetService("Workspace").Enemies:FindFirstChild("Urban")) and "✅" or "❌"
 			local response = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("EliteHunter", "Progress")
 
 			if v426 ~= s12 then
@@ -5143,9 +6066,9 @@ do
 		pcall(function()
 			while wait(1) do
 				if workspace.Enemies:FindFirstChild("Tyrant of the Skies") then
-					v538:SetText("Tyrant of the Skies: âœ…")
+					v538:SetText("Tyrant of the Skies: ✅")
 				else
-					v538:SetText("Tyrant of the Skies: âŒ")
+					v538:SetText("Tyrant of the Skies: ❌")
 				end
 			end
 		end)
@@ -6161,20 +7084,20 @@ do
 					end
 				end
 
-				local s15 = "ðŸ”´"
+				local s15 = "🔴"
 				local v641
 
 				if v637 then
-					local s16 = "ðŸŸ¢"
+					local s16 = "🟢"
 					local v643 = (10 - min) * 60 - sec
 
 					if v643 < 0 then
 						v643 = 0
 					end
 
-					v641 = string.format("%s ACTIVE - Time Left: %02d:%02d (âœ… Enemies Found)", s16, math.floor(v643 / 60), v643 % 60)
+					v641 = string.format("%s ACTIVE - Time Left: %02d:%02d (✅ Enemies Found)", s16, math.floor(v643 / 60), v643 % 60)
 				elseif v636 then
-					local s17 = "ðŸŸ¢"
+					local s17 = "🟢"
 					local v645 = (10 - min) * 60 - sec
 
 					if v645 < 0 then
@@ -6616,10 +7539,6 @@ do
 
 					if _G.HopDelay <= tick() - _G.HopTimer then
 						_G.HopTimer = tick()
-
-						if syn and syn.queue_on_teleport then
-							syn.queue_on_teleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxfruitsnokey/Redz/refs/heads/main/Chest'))()")
-						end
 
 						game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer)
 					end
@@ -31480,8 +32399,7 @@ do
 end
 
 lib:Notify({
-	Title = "Banana Hub",
-	Description = "Banana Hub comeback",
-	Icon = "rbxassetid://5009915795",
-	Duration = 5
+	Title = "LP10 HUB",
+	Description = "Blox Fruits loaded. RightShift (PC) or the pumpkin button shows / hides the menu.",
+	Duration = 6
 })
