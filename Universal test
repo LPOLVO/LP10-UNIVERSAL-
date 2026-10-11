@@ -1,11 +1,10 @@
 --[[
-╔══════════════════════════════════════════════════════════════════════════════╗
-║ LP10 UNIVERSAL — HALLOWEEN UI PREVIEW v8                                     ║
-║ 42 catalogue entries · orange ember palette · seasonal ambience              ║
-║ Search · filters · favorites · pins · session-only preferences                ║
-║ UI ONLY: no executable payloads, external script loads, or game automation   ║
-║ Run as a LocalScript in an experience you own or are authorized to edit.      ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║   LP10 UNIVERSAL  —  HALLOWEEN EDITION  🎃                                           ║
+║   BY @LPOLVO (HAMZA)  |  INSTAGRAM: @4me.h4mz4_                                     ║
+║   Pumpkin Night Shell · 42 Scripts · Full-Screen · Spooky FX · Halloween Intro       ║
+║   Live FPS/PING/MEM · Favorites · Pinned · Recent · Popular · Search · Stats         ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝
 ]]
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -13,53 +12,74 @@
 -- ════════════════════════════════════════════════════════════════════════════
 local Players       = game:GetService("Players")
 local UIS           = game:GetService("UserInputService")
+local CoreGui       = game:GetService("CoreGui")
 local TweenService  = game:GetService("TweenService")
 local Lighting      = game:GetService("Lighting")
+local HttpService   = game:GetService("HttpService")
 local SoundService  = game:GetService("SoundService")
 local RunService    = game:GetService("RunService")
 local StarterGui    = game:GetService("StarterGui")
+local Marketplace   = game:GetService("MarketplaceService")
 local Stats         = game:GetService("Stats")
 
 local LP  = Players.LocalPlayer
-local Cam = workspace.CurrentCamera
+local sessionStart = os.time()
+
+-- Every long-lived connection is tracked so closing / re-running cleans up fully.
+local Conns = {}
+local function connectTracked(signal, fn)
+    local c = signal:Connect(fn)
+    table.insert(Conns, c)
+    return c
+end
+local shutdownFn = function() end   -- assigned after sounds / blur exist
+local CurrentPage                   -- assigned below once Persist exists
+local NotifHistory = {}
+local MAX_NOTIF_HISTORY = 10
+-- forward declarations (defined later in the file)
+local ScriptMeta, searchScripts, showTooltip, openNotes, showRating
+local checkMilestones, haptic, enableSwipeExec, buildStats, buildNotifCenter
+local ambientSound, QuickBar
+local Cam = workspace.CurrentCamera or workspace:WaitForChild("Camera")
 
 -- ════════════════════════════════════════════════════════════════════════════
--- HALLOWEEN PALETTE  —  Pumpkin Orange / Midnight
+-- COLOUR PALETTE  —  Halloween Night
 -- ════════════════════════════════════════════════════════════════════════════
 local C = {
-    -- Core pumpkin tones
-    royal      = Color3.fromRGB(255,117,24),
-    electric   = Color3.fromRGB(255,145,40),
-    elecDark   = Color3.fromRGB(137,49,20),
-    elecLight  = Color3.fromRGB(255,188,105),
-    ice        = Color3.fromRGB(255,221,181),
-    violet     = Color3.fromRGB(189,119,255),
-    cyan       = Color3.fromRGB(255,174,93),
+    -- Halloween core
+    royal      = Color3.fromRGB(230, 90,  10),   -- deep pumpkin
+    electric   = Color3.fromRGB(255, 117, 24),   -- pumpkin orange
+    elecDark   = Color3.fromRGB(170, 60,  5),
+    elecLight  = Color3.fromRGB(255, 170, 70),
+    ice        = Color3.fromRGB(255, 190, 110),  -- flame light (accent text)
+    violet     = Color3.fromRGB(160, 90,  230),  -- witch purple
+    cyan       = Color3.fromRGB(120, 255, 70),   -- slime green
     -- Backgrounds
-    bg         = Color3.fromRGB(8,5,7),
-    surface    = Color3.fromRGB(18,9,11),
-    panel      = Color3.fromRGB(24,13,15),
-    card       = Color3.fromRGB(32,17,19),
-    cardHot    = Color3.fromRGB(52,24,20),
-    sidebar    = Color3.fromRGB(13,7,9),
-    header     = Color3.fromRGB(18,9,11),
-    input      = Color3.fromRGB(22,12,14),
+    bg         = Color3.fromRGB(9,   5,   13),
+    surface    = Color3.fromRGB(14,  7,   20),
+    panel      = Color3.fromRGB(20,  10,  26),
+    card       = Color3.fromRGB(28,  14,  24),
+    cardHot    = Color3.fromRGB(56,  26,  20),
+    sidebar    = Color3.fromRGB(12,  6,   16),
+    header     = Color3.fromRGB(14,  7,   20),
+    input      = Color3.fromRGB(24,  12,  26),
+    navActive  = Color3.fromRGB(96,  42,  10),
     -- Lines
-    line       = Color3.fromRGB(76,36,26),
-    lineLight  = Color3.fromRGB(116,57,38),
+    line       = Color3.fromRGB(96,  46,  28),
+    lineLight  = Color3.fromRGB(150, 76,  30),
     -- Text
-    white      = Color3.fromRGB(255,240,222),
-    text       = Color3.fromRGB(235,201,171),
-    muted      = Color3.fromRGB(177,132,104),
-    dim        = Color3.fromRGB(103,77,64),
+    white      = Color3.fromRGB(255, 238, 215),
+    text       = Color3.fromRGB(232, 190, 150),
+    muted      = Color3.fromRGB(176, 128, 98),
+    dim        = Color3.fromRGB(116, 84,  68),
     -- Status
-    green      = Color3.fromRGB(52,  224, 145),
-    greenDark  = Color3.fromRGB(18,  140, 88),
-    yellow     = Color3.fromRGB(255,194,80),
-    red        = Color3.fromRGB(220, 52, 42),
-    redDark    = Color3.fromRGB(142, 28, 20),
-    orange     = Color3.fromRGB(255, 117, 24),
-    pink       = Color3.fromRGB(198,57,135),
+    green      = Color3.fromRGB(120, 245, 70),
+    greenDark  = Color3.fromRGB(60,  140, 30),
+    yellow     = Color3.fromRGB(255, 198, 74),
+    red        = Color3.fromRGB(230, 40,  60),
+    redDark    = Color3.fromRGB(150, 25,  40),
+    orange     = Color3.fromRGB(255, 140, 30),
+    pink       = Color3.fromRGB(196, 70,  210),
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -73,14 +93,21 @@ local Settings = {
     blur         = true,
     sounds       = true,
     compactMode  = false,
-    darkAccent   = false,
+    lightning    = true,
     animSpeed    = 1.0,
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
--- SESSION STATE  (in-memory only)
+-- PERSISTENT STATE  (survives re-execution via getgenv)
 -- ════════════════════════════════════════════════════════════════════════════
 local Persist = {}
+pcall(function()
+    local env = getgenv and getgenv()
+    if env then
+        env.LP10UltimateState = env.LP10UltimateState or {}
+        Persist = env.LP10UltimateState
+    end
+end)
 Persist.page        = Persist.page        or "Home"
 Persist.favorites   = Persist.favorites   or {}
 Persist.pinned      = Persist.pinned      or {}
@@ -90,14 +117,108 @@ Persist.execCount   = Persist.execCount   or 0
 Persist.totalExecs  = Persist.totalExecs  or {}
 Persist.notes       = Persist.notes       or {}
 Persist.lastUsed    = Persist.lastUsed    or {}
+CurrentPage = Persist.page or "Home"
 
 -- ════════════════════════════════════════════════════════════════════════════
--- SESSION PREVIEW STATE (kept in memory only)
+-- FILE-BACKED USAGE VAULT
+-- Keeps execution totals, most-used ranking, and recent scripts between
+-- executor restarts when the executor exposes its local file API.
 -- ════════════════════════════════════════════════════════════════════════════
-local function readUsageFile() return nil end
-local function mergeUsageFromDisk(_) end
-local function saveUsageFile() return false end
+local UsageFile       = "LP10/UniversalUsage.json"
+local UsageFileBackup = "LP10_UniversalUsage.json"
 
+local function readUsageFile()
+    if type(readfile) ~= "function" then return nil end
+    for _, path in ipairs({UsageFile, UsageFileBackup}) do
+        local ok, raw = pcall(function()
+            if type(isfile) == "function" and not isfile(path) then
+                return nil
+            end
+            return readfile(path)
+        end)
+        if ok and type(raw) == "string" and raw ~= "" then
+            local decoded
+            pcall(function() decoded = HttpService:JSONDecode(raw) end)
+            if type(decoded) == "table" then return decoded end
+        end
+    end
+end
+
+local function mergeUsageFromDisk(data)
+    if type(data) ~= "table" then return end
+    Persist.execCount = math.max(tonumber(Persist.execCount) or 0, tonumber(data.execCount) or 0)
+
+    if type(data.totalExecs) == "table" then
+        for name, count in pairs(data.totalExecs) do
+            local diskCount = tonumber(count) or 0
+            Persist.totalExecs[name] = math.max(tonumber(Persist.totalExecs[name]) or 0, diskCount)
+        end
+    end
+
+    if type(data.lastUsed) == "table" then
+        for name, stamp in pairs(data.lastUsed) do
+            if Persist.lastUsed[name] == nil then
+                Persist.lastUsed[name] = stamp
+            end
+        end
+    end
+
+    if #Persist.recent == 0 and type(data.recent) == "table" then
+        for _, name in ipairs(data.recent) do
+            if type(name) == "string" and #Persist.recent < 12 then
+                local exists = false
+                for _, current in ipairs(Persist.recent) do
+                    if current == name then exists = true; break end
+                end
+                if not exists then table.insert(Persist.recent, name) end
+            end
+        end
+    end
+
+    for _, listName in ipairs({"favorites", "pinned"}) do
+        if #Persist[listName] == 0 and type(data[listName]) == "table" then
+            for _, name in ipairs(data[listName]) do
+                if type(name) == "string" then table.insert(Persist[listName], name) end
+            end
+        end
+    end
+end
+
+local function saveUsageFile()
+    if type(writefile) ~= "function" then return false end
+    local payload = {
+        version    = 1,
+        updatedAt  = os.time(),
+        execCount  = Persist.execCount or 0,
+        totalExecs = Persist.totalExecs or {},
+        recent     = Persist.recent or {},
+        lastUsed   = Persist.lastUsed or {},
+        favorites  = Persist.favorites or {},
+        pinned     = Persist.pinned or {},
+    }
+    local encoded
+    local okEncode = pcall(function() encoded = HttpService:JSONEncode(payload) end)
+    if not okEncode or type(encoded) ~= "string" then return false end
+
+    local folderReady = false
+    pcall(function()
+        if type(isfolder) == "function" and isfolder("LP10") then
+            folderReady = true
+        elseif type(makefolder) == "function" then
+            makefolder("LP10")
+            folderReady = true
+        end
+    end)
+
+    local path = folderReady and UsageFile or UsageFileBackup
+    return pcall(function() writefile(path, encoded) end)
+end
+
+-- Load disk data after the in-memory defaults exist.  If the executor has no
+-- file API, getgenv persistence still keeps the session data available.
+mergeUsageFromDisk(readUsageFile())
+
+-- ════════════════════════════════════════════════════════════════════════════
 -- INSTANCE HELPERS
 -- ════════════════════════════════════════════════════════════════════════════
 local function prop(obj, values)
@@ -250,163 +371,204 @@ local function play(k)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- UI PREVIEW CLIPBOARD STUB
+-- CLIPBOARD / EXECUTOR DETECTION
 -- ════════════════════════════════════════════════════════════════════════════
-local function setClip(_)
-    return false
+local function setClip(text)
+    pcall(function()
+        if setclipboard then setclipboard(text)
+        elseif syn and syn.write_clipboard then syn.write_clipboard(text)
+        end
+    end)
 end
 
-local PREVIEW_MODE = "UI-only preview"
-local GAME_NAME   = "Halloween Preview"
+local function execName()
+    if syn then return "Synapse X" end
+    if KRNL_ENV then return "Krnl" end
+    for _, fn in ipairs({getexecutorname or false, identifyexecutor or false}) do
+        if fn then
+            local ok, v = pcall(fn)
+            if ok and v then return tostring(v) end
+        end
+    end
+    return UIS.TouchEnabled and "Mobile Executor" or "Delta / Unknown"
+end
+
+local EXECUTOR    = execName()
+local GAME_NAME   = "Unknown Experience"
+pcall(function() GAME_NAME = Marketplace:GetProductInfo(game.PlaceId).Name end)
 local CURRENT_TIME = os.date("%H:%M")
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 42 DISPLAY ENTRIES (METADATA ONLY; NO EXECUTABLE CODE)
+-- ALL 42 SCRIPTS  (EVERY ENTRY PRESERVED — DO NOT REMOVE)
 -- ════════════════════════════════════════════════════════════════════════════
 local Scripts = {
     -- ★ TOP / FEATURED ★
     {
-        N = "+1 Assassin Leveling", New = true, Rainbow = false, Cat = "Universal", col = C.electric,
-        F = "Halloween UI-only catalog preview; no executable payload is included.",
-        
+        N = "+1 Assassin Leveling", New = true, Rainbow = true, Cat = "Universal", col = C.electric,
+        F = "Auto Rebirth, Auto Stage, Strength Farm, and a purple UI. Mobile and PC. Remote payload has not been independently reviewed.",
+        S = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/%2B1%20Assassin%20Leveling%20OB"))()',
     },
     {
         N = "Steal From the rich", New = false, Cat = "Universal", col = C.electric,
-        F = "Halloween UI-only catalog preview; no executable payload is included.",
-        
+        F = "Auto Steal, Auto Place, Auto Open, Equip Best, and a Minimum Rarity selector. Mobile and PC. The remote payload is obfuscated; verify it before running.",
+        S = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Steal%20From%20the%20rich%20OB"))()',
     },
     {
         N = "RUNAWAYS", New = false, Cat = "Universal", col = C.electric,
-        F = "Halloween UI-only catalog preview; no executable payload is included.",
-        
+        F = "RUNAWAYS automation script. Fully obfuscated, Delta compatible, and ready for mobile and PC.",
+        S = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/RUNAWAYS%20OB"))()',
     },
     {
         N = "+1 Wings For Eggs", New = false, Cat = "Universal", col = C.electric,
-        F = "Halloween UI-only catalog preview; no executable payload is included.",
-        
+        F = "Steal Best Eggs, Instant Steal, Auto Place, Auto Hatch, Buy Speed, Auto Rebirth, and Teleport. Purple LP10 UI.",
+        S = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/%2B1%20Wings%20For%20Eggs"))()',
     },
     {N="Dead rails New",                         New=false, Cat="Universal", col=C.orange,
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Dead Rails New automation script — survive and dominate. Delta compatible. Mobile & PC friendly.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Dead%20rails%20new%20OB"))()'},
     {N="Heroes RNG",                             New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Heroes RNG automation script. Delta compatible. Mobile & PC friendly.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Heroes%20RNG%20OB"))()'},
     {N="+1 Double Jump Bike Escape",           New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto Train, Auto Rebirth, Collect Coin, Last Wins tracker. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/1DoubleJumpBikeEscape%20OB"))()'},
     {N="+1 Muscles for Prison Escape",         New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Muscle training and prison escape automation. Delta compatible. Mobile & PC friendly.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/%2B1%20Muscles%20for%20Prison%20Escape%20OB"))()'},
     {N="Iron Soul: Dungeon",                    New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Iron Soul: Dungeon automation script. Delta compatible. Mobile & PC friendly.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Iron%20Soul%20Dungeon%20OB"))()'},
     {N="New free Gamepasses",                    New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Unlock gamepasses for free in supported experiences. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/New%20Free%20Gamepasses"))()'},
     -- ★ NEW SCRIPTS ★
     {
         N = "Greedy Growers", New = false, Cat = "Universal",
-        F = "Halloween UI-only catalog preview; no executable payload is included.",
-        
+        F = "Auto farm, auto collect crops, speed boost and more. Fully obfuscated & Delta compatible. Mobile & PC friendly.",
+        S = [[
+            local ok, err = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Greedy%20Growers%20OB"))()
+            end)
+            if not ok then
+                warn("Greedy Growers failed:", err)
+                game:GetService("StarterGui"):SetCore("SendNotification",{Title="Greedy Growers",Text="Failed to load. Try again or use a different executor.",Duration=5})
+            end
+        ]],
     },
     {
         N = "Drive Car and Slide", New = false, Cat = "Universal",
-        F = "Halloween UI-only catalog preview; no executable payload is included.",
-        
+        F = "Auto Inf Coins, Auto Inf Wins, clean UI integration. Delta & Mobile Compatible.",
+        S = [[
+            local ok, err = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Drive%20Car%20and%20Slide%20OB"))()
+            end)
+            if not ok then
+                warn("Drive Car and Slide failed:", err)
+                game:GetService("StarterGui"):SetCore("SendNotification",{Title="Drive Car and Slide",Text="Failed to load. Try again or use a different executor.",Duration=5})
+            end
+        ]],
     },
     {
         N = "Speed Vs Giant", New = false, Cat = "Universal",
-        F = "Halloween UI-only catalog preview; no executable payload is included.",
-        
+        F = "Cash Box, Speed Upgrade toggle, and more. Fully obfuscated & Delta compatible.",
+        S = [[
+            local ok, err = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Speed%20Vs%20Giant%20OB"))()
+            end)
+            if not ok then
+                warn("Speed Vs Giant failed:", err)
+                game:GetService("StarterGui"):SetCore("SendNotification",{Title="Speed Vs Giant",Text="Failed to load. Try again or use a different executor.",Duration=5})
+            end
+        ]],
     },
     -- CORE LIBRARY
     {N="Scream for brainrot",                 New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Infinite spins automatically + unlocks all the best rewards from the spin wheel. Delta compatible. Mobile & PC friendly.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Scream%20for%20brainrot%20OB"))()'},
     {N="Fake Lag / Disconnecting",             New=false, Cat="Utility",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Fake Lag (simulates high ping/stuttering) or Fake Disconnecting for trolling. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Fake%20lag%20OB"))()'},
     {N="Cheese Escape [Horror]",               New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Script for Cheese Escape Horror. Bypass traps and progress automatically. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Cheese%20Escape%20%5BHorror%5D%20OB"))()'},
     {N="Build a Store",                        New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Build a Store automation — auto stock, auto sell, and more. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20a%20store%20OB"))()'},
     {N="Kick a Lucky Block",                   New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto kick lucky blocks for maximum rewards. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Kick%20a%20luckyblock%20OB"))()'},
     {N="Combat Arena Op Silent Aim",           New=false, Cat="Combat",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Silent Aim for Combat Arena — lock onto enemies without detection. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Combat%20Arena%20Op%20silent%20aim%20OB"))()'},
     {N="1 Plank = $1/s",                       New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto earn $1 per second per plank. Passive income automation. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/1%20plank%20%3D%20%241perS%20OB"))()'},
     {N="Mutate The Brainrot",                  New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto mutate brainrot characters for maximum power. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Mutate%20the%20brainrot%20OB"))()'},
     {N="Launch Yourself For Brainrots!",       New=false, Cat="Movement",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Launch yourself across the map in Brainrot games. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Launch%20Yourself%20For%20Brainrots!%20OB"))()'},
     {N="Coordinates And Save Teleport",        New=false, Cat="Teleport",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Save coordinates and teleport back to any saved location instantly. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Coordinates%20And%20save%20Teleport%20OB"))()'},
     {N="Build A Farm Factory",                 New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto build and run your farm factory. Passive production automation. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20A%20Farm%20Factory%20OB"))()'},
     {N="Free Gamepasses",                      New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Unlock gamepasses for free in supported experiences. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Free%20Gamepasses%20OB"))()'},
     {N="Hide & Seek",                          New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto hide and seek — find or evade opponents automatically. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Hide%20%26%20Seek%20OB"))()'},
     {N="Impossible Squid Game Glass Bridge 2", New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto complete the glass bridge — always pick the safe tile. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Impossible%20Squid%20Game%20Glass%20Bridge%202%20OB"))()'},
     {N="Rivals Silent Aim",                    New=false, Cat="Combat",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Silent Aim for Rivals — precision targeting without crosshair. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/RIVALS%20SILENT%20AIM%20OB"))()'},
     {N="Squabble Game RP",                     New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Full automation for Squabble Game RP. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Squabble%20Game%20RP%20OB"))()'},
     {N="Parkour for Brainrots",                New=false, Cat="Movement",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto parkour for Brainrot games — never miss a jump. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Parkour%20for%20brainrots%20OB"))()'},
     {N="Ride Storm",                           New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Ride Storm automation script. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Ride%20Storm%20OB"))()'},
     {N="Skateboard for Brainrots",             New=false, Cat="Movement",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto skateboard tricks and movement for Brainrot games. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Skateboard%20for%20Brainrots%20OB"))()'},
     {N="Emotes",                               New=false, Cat="Visual",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Access and play any emote in supported games. All emotes unlocked. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Emotes%20OB"))()'},
     {N="Noob Army Tycoon",                     New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto build and expand your Noob Army Tycoon. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Noob%20Army%20Tycoon%20OB"))()'},
     {N="Ride the Coaster",                     New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Ride the Coaster automation. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Ride%20the%20Coaster%20OB"))()'},
     {N="Dead Rails",                           New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Dead Rails script — survive and dominate. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Dead%20rails%20OB"))()'},
     {N="Don't Get Caught for Hackers",         New=false, Cat="Utility",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Bypass anti-cheat in Don't Get Caught. Stealth execution. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Don\'t%20get%20caught%20for%20hackers%20OB"))()'},
     {N="Brainrot Ascension",                   New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Ascend faster in Brainrot Ascension — auto stages, auto rewards. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Brainrot%20Ascension%20OB"))()'},
     {N="Paper Plane Training",                 New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Paper Plane Training automation — best throws, best angles. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/%5B%F0%9F%A5%87%5DPaper%20Airplane%20Training%E2%9C%88%EF%B8%8F%20OB"))()'},
     {N="Cursed Blade [ALPHA]",                 New=false, Cat="Combat",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Cursed Blade alpha — early access combat enhancements. High damage, anti-stun. Use at own risk.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Cursed%20Blade%20%5BALPHA%5D%20OB"))()'},
     {N="OneShot",                              New=false, Cat="Combat",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="OneShot — eliminate opponents with a single hit. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/OneShot%20OB"))()'},
     {N="Build a Boat for Treasure",            New=false, Cat="Universal",
-     F = "Halloween UI-only catalog preview; no executable payload is included.",
-     },
+     F="Auto build and race in Build a Boat for Treasure. Delta compatible.",
+     S='loadstring(game:HttpGet("https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/Build%20a%20boat%20for%20Treasure%20OB"))()'},
 }
 
 local SCRIPT_COUNT = #Scripts  -- 42
@@ -415,42 +577,58 @@ local SCRIPT_COUNT = #Scripts  -- 42
 -- CATEGORIES
 -- ════════════════════════════════════════════════════════════════════════════
 local CATS = {
-    {id="All",       label="All",        icon="▦"},
-    {id="New",       label="New",        icon="★"},
-    {id="Universal", label="Universal",  icon="◈"},
-    {id="Combat",    label="Combat",     icon="⚔"},
-    {id="Movement",  label="Movement",   icon="↑"},
-    {id="Teleport",  label="Teleport",   icon="⊛"},
-    {id="Utility",   label="Utility",    icon="⚙"},
-    {id="Visual",    label="Visual",     icon="◉"},
+    {id="All",       label="All",       icon="🎃"},
+    {id="New",       label="New",       icon="🔥"},
+    {id="Universal", label="Universal", icon="🕸️"},
+    {id="Combat",    label="Combat",    icon="💀"},
+    {id="Movement",  label="Movement",  icon="🦇"},
+    {id="Teleport",  label="Teleport",  icon="🔮"},
+    {id="Utility",   label="Utility",   icon="🕷️"},
+    {id="Visual",    label="Visual",    icon="👻"},
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- NAVIGATION PAGES
 -- ════════════════════════════════════════════════════════════════════════════
 local Pages = {
-    {id="Home",      label="Home",      icon="🕸"},
-    {id="Scripts",   label="Catalog",   icon="🎃"},
-    {id="Favorites", label="Favorites", icon="★"},
-    {id="Pinned",    label="Pinned",    icon="◆"},
-    {id="Recent",    label="Recent",    icon="↺"},
-    {id="Popular",   label="Popular",   icon="▴"},
-    {id="Games",     label="Games",     icon="👻"},
-    {id="Changelog", label="Changelog", icon="✦"},
+    {id="Home",      label="Home",      icon="🎃"},
+    {id="Scripts",   label="Scripts",   icon="🧙"},
+    {id="Favorites", label="Favorites", icon="🦇"},
+    {id="Pinned",    label="Pinned",    icon="🕸️"},
+    {id="Recent",    label="Recent",    icon="👻"},
+    {id="Popular",   label="Popular",   icon="🔥"},
+    {id="Games",     label="Games",     icon="🕷️"},
+    {id="Stats",     label="Stats",     icon="📊"},
+    {id="Notifs",    label="Notifs",    icon="🔔"},
+    {id="Changelog", label="Changelog", icon="📜"},
     {id="Settings",  label="Settings",  icon="⚙"},
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- CORE GUI SETUP
 -- ════════════════════════════════════════════════════════════════════════════
-local PlayerGui = LP:WaitForChild("PlayerGui")
+local GuiParent = CoreGui
+pcall(function() if gethui then GuiParent = gethui() end end)
+
 pcall(function()
-    local prev = PlayerGui:FindFirstChild("LP10_Ultimate")
-    if prev then prev:Destroy() end
+    local env = getgenv and getgenv()
+    if env and type(env.LP10UniversalCleanup) == "function" then env.LP10UniversalCleanup() end
+end)
+pcall(function()
+    for _, host in ipairs({CoreGui, GuiParent}) do
+        for _, name in ipairs({"LP10_Ultimate", "LP10_Halloween"}) do
+            local prev = host:FindFirstChild(name)
+            if prev then prev:Destroy() end
+        end
+    end
+end)
+pcall(function()
+    local old = Lighting:FindFirstChild("LP10_UltimateBlur")
+    if old then old:Destroy() end
 end)
 
-local GUI = new("ScreenGui", PlayerGui, {
-    Name           = "LP10_Ultimate",
+local GUI = new("ScreenGui", GuiParent, {
+    Name           = "LP10_Halloween",
     IgnoreGuiInset = true,
     ResetOnSpawn   = false,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -465,6 +643,7 @@ local toastQueue = {}
 local toastActive = false
 
 local function showNextToast()
+    if not GUI or not GUI.Parent then toastQueue = {}; toastActive = false; return end
     if #toastQueue == 0 then toastActive = false; return end
     toastActive = true
     local data = table.remove(toastQueue, 1)
@@ -476,7 +655,7 @@ local function showNextToast()
     })
     round(card, 16)
     outline(card, data.col or C.electric, 1.2)
-    fillGradient(card, Color3.fromRGB(30,12,20), C.surface, 135)
+    fillGradient(card, Color3.fromRGB(42,20,50), C.surface, 135)
     -- color bar
     frame(card, {
         Size             = UDim2.new(0, 3, 1, -22),
@@ -520,6 +699,8 @@ local function showNextToast()
 end
 
 local function toast(title, msg, col)
+    table.insert(NotifHistory, 1, {title=title, msg=msg, col=col, time=os.date("%H:%M:%S")})
+    if #NotifHistory > MAX_NOTIF_HISTORY then table.remove(NotifHistory, #NotifHistory) end
     table.insert(toastQueue, {title=title, msg=msg, col=col})
     if not toastActive then showNextToast() end
 end
@@ -528,21 +709,33 @@ end
 -- BUTTON INTERACTION WIRING
 -- ════════════════════════════════════════════════════════════════════════════
 local function wire(item, base, hover)
+    local pressed, pressedSize = false, nil
+    local function baseColor()
+        if type(base) == "function" then return base() end
+        return base
+    end
     item.MouseEnter:Connect(function()
         tw(item, 0.14, {BackgroundColor3 = hover or C.cardHot})
     end)
     item.MouseLeave:Connect(function()
-        tw(item, 0.14, {BackgroundColor3 = base})
+        tw(item, 0.14, {BackgroundColor3 = baseColor()})
+        if pressed then
+            pressed = false
+            spring(item, 0.12, {Size = pressedSize})
+        end
     end)
     item.MouseButton1Down:Connect(function()
+        if pressed then return end
+        pressed = true
+        pressedSize = item.Size
         spring(item, 0.1, {Size = UDim2.new(
             item.Size.X.Scale, item.Size.X.Offset - 3,
             item.Size.Y.Scale, item.Size.Y.Offset - 2)})
     end)
     item.MouseButton1Up:Connect(function()
-        spring(item, 0.16, {Size = UDim2.new(
-            item.Size.X.Scale, item.Size.X.Offset + 3,
-            item.Size.Y.Scale, item.Size.Y.Offset + 2)})
+        if not pressed then return end
+        pressed = false
+        spring(item, 0.16, {Size = pressedSize})
     end)
 end
 
@@ -613,41 +806,41 @@ local MainBack = frame(Main, {
     BackgroundColor3 = C.surface,
     ZIndex           = 5,
 })
-fillGradient(MainBack, Color3.fromRGB(16,8,10), C.bg, 135)
+fillGradient(MainBack, Color3.fromRGB(20,9,24), C.bg, 135)
 
--- HALLOWEEN AMBIENT background
-local EmberFX = frame(Main, {
+-- AURORA FX background
+local AuroraFX = frame(Main, {
     Size                 = UDim2.fromScale(1, 1),
     BackgroundTransparency = 1,
     ClipsDescendants     = true,
     ZIndex               = 5,
 })
 
-local EmberOne = new("ImageLabel", EmberFX, {
-    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,117,24), ImageTransparency = 0.80,
+local AuroraOne = new("ImageLabel", AuroraFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,110,20), ImageTransparency = 0.80,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(390,390),
     Position = UDim2.new(0.05,-195,0.10,-195), ZIndex = 5,
 })
-local EmberTwo = new("ImageLabel", EmberFX, {
-    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(109,40,217), ImageTransparency = 0.84,
+local AuroraTwo = new("ImageLabel", AuroraFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(170,94,40), ImageTransparency = 0.84,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(330,330),
     Position = UDim2.new(0.95,-165,0.82,-165), ZIndex = 5,
 })
-local EmberThree = new("ImageLabel", EmberFX, {
-    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(189,119,255), ImageTransparency = 0.90,
+local AuroraThree = new("ImageLabel", AuroraFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(90,220,50), ImageTransparency = 0.90,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(260,260),
     Position = UDim2.new(0.58,-130,1.05,-130), ZIndex = 5,
 })
-local EmberFour = new("ImageLabel", EmberFX, {
-    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,145,44), ImageTransparency = 0.88,
+local AuroraFour = new("ImageLabel", AuroraFX, {
+    Image = GLOW_IMG, ImageColor3 = Color3.fromRGB(255,80,10), ImageTransparency = 0.88,
     BackgroundTransparency = 1, Size = UDim2.fromOffset(200,200),
     Position = UDim2.new(0.5,-100,0.5,-100), ZIndex = 5,
 })
-local EmberLine = frame(EmberFX, {
+local AuroraLine = frame(AuroraFX, {
     Size = UDim2.new(1.5,0,0,1), Position = UDim2.new(-0.25,0,0.34,0),
     BackgroundColor3 = C.electric, BackgroundTransparency = 0.92, Rotation = -18, ZIndex = 5,
 })
-local EmberLine2 = frame(EmberFX, {
+local AuroraLine2 = frame(AuroraFX, {
     Size = UDim2.new(1.5,0,0,1), Position = UDim2.new(-0.25,0,0.64,0),
     BackgroundColor3 = C.violet, BackgroundTransparency = 0.94, Rotation = 12, ZIndex = 5,
 })
@@ -655,21 +848,21 @@ local EmberLine2 = frame(EmberFX, {
 task.spawn(function()
     while GUI and GUI.Parent do
         local active = Settings.particles and not Settings.performance and not Settings.reduceMotion
-        EmberFX.Visible = active
+        AuroraFX.Visible = active
         if active then
-            sine(EmberOne,   5.8, {Position=UDim2.new(0.22,-195,0.24,-195), ImageTransparency=0.88})
-            sine(EmberTwo,   6.4, {Position=UDim2.new(0.78,-165,0.68,-165), ImageTransparency=0.90})
-            sine(EmberThree, 4.8, {Position=UDim2.new(0.42,-130,0.86,-130), ImageTransparency=0.94})
-            sine(EmberFour,  7.0, {Position=UDim2.new(0.38,-100,0.38,-100), ImageTransparency=0.92})
-            sine(EmberLine,  7.2, {Position=UDim2.new(0.05,0,0.62,0),       BackgroundTransparency=0.96})
-            sine(EmberLine2, 5.6, {Position=UDim2.new(0.15,0,0.28,0),       BackgroundTransparency=0.97})
+            sine(AuroraOne,   5.8, {Position=UDim2.new(0.22,-195,0.24,-195), ImageTransparency=0.88})
+            sine(AuroraTwo,   6.4, {Position=UDim2.new(0.78,-165,0.68,-165), ImageTransparency=0.90})
+            sine(AuroraThree, 4.8, {Position=UDim2.new(0.42,-130,0.86,-130), ImageTransparency=0.94})
+            sine(AuroraFour,  7.0, {Position=UDim2.new(0.38,-100,0.38,-100), ImageTransparency=0.92})
+            sine(AuroraLine,  7.2, {Position=UDim2.new(0.05,0,0.62,0),       BackgroundTransparency=0.96})
+            sine(AuroraLine2, 5.6, {Position=UDim2.new(0.15,0,0.28,0),       BackgroundTransparency=0.97})
             task.wait(4.4)
-            sine(EmberOne,   5.8, {Position=UDim2.new(0.05,-195,0.10,-195), ImageTransparency=0.80})
-            sine(EmberTwo,   6.4, {Position=UDim2.new(0.95,-165,0.82,-165), ImageTransparency=0.84})
-            sine(EmberThree, 4.8, {Position=UDim2.new(0.58,-130,1.05,-130), ImageTransparency=0.90})
-            sine(EmberFour,  7.0, {Position=UDim2.new(0.5,-100,0.5,-100),   ImageTransparency=0.88})
-            sine(EmberLine,  7.2, {Position=UDim2.new(-0.25,0,0.34,0),      BackgroundTransparency=0.92})
-            sine(EmberLine2, 5.6, {Position=UDim2.new(-0.25,0,0.64,0),      BackgroundTransparency=0.94})
+            sine(AuroraOne,   5.8, {Position=UDim2.new(0.05,-195,0.10,-195), ImageTransparency=0.80})
+            sine(AuroraTwo,   6.4, {Position=UDim2.new(0.95,-165,0.82,-165), ImageTransparency=0.84})
+            sine(AuroraThree, 4.8, {Position=UDim2.new(0.58,-130,1.05,-130), ImageTransparency=0.90})
+            sine(AuroraFour,  7.0, {Position=UDim2.new(0.5,-100,0.5,-100),   ImageTransparency=0.88})
+            sine(AuroraLine,  7.2, {Position=UDim2.new(-0.25,0,0.34,0),      BackgroundTransparency=0.92})
+            sine(AuroraLine2, 5.6, {Position=UDim2.new(-0.25,0,0.64,0),      BackgroundTransparency=0.94})
             task.wait(4.4)
         else
             task.wait(0.8)
@@ -689,10 +882,10 @@ local Inner = frame(Main, {
 -- ════════════════════════════════════════════════════════════════════════════
 local Header = frame(Inner, {
     Size             = UDim2.new(1,0,0,62),
-    BackgroundColor3 = Color3.fromRGB(16,8,11),
+    BackgroundColor3 = Color3.fromRGB(22,10,27),
     ZIndex           = 20,
 })
-fillGradient(Header, Color3.fromRGB(29,14,17), Color3.fromRGB(11,6,8), 0)
+fillGradient(Header, Color3.fromRGB(41,19,49), Color3.fromRGB(20,9,24), 0)
 -- bottom border
 frame(Header, {
     Size             = UDim2.new(1,0,0,1),
@@ -720,19 +913,19 @@ round(Brand, 12)
 fillGradient(Brand, C.electric, C.royal, 135)
 label(Brand, {
     Size=UDim2.fromScale(1,1), Text="🎃", TextColor3=Color3.new(1,1,1),
-    Font=Enum.Font.GothamBold, TextSize=15, ZIndex=23,
+    Font=Enum.Font.GothamBold, TextSize=20, ZIndex=23,
 })
 glow(Brand, 80, C.electric, 0.68, UDim2.new(0.5,-40,0.5,-40))
 
 local BrandTitle = label(Header, {
     Size=UDim2.fromOffset(180,22), Position=UDim2.fromOffset(62,10),
-    Text="LP10 HALLOWEEN", TextColor3=C.white,
-    Font=Enum.Font.GothamBold, TextSize=14,
+    Text="LP10 UNIVERSAL", TextColor3=C.electric,
+    Font=Enum.Font.Creepster, TextSize=21,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=22,
 })
 local BrandSub = label(Header, {
     Size=UDim2.fromOffset(240,17), Position=UDim2.fromOffset(62,32),
-    Text="HALLOWEEN PREVIEW  /  "..SCRIPT_COUNT.." ENTRIES  /  UI ONLY,
+    Text="HALLOWEEN  /  "..SCRIPT_COUNT.." SCRIPTS  /  "..EXECUTOR,
     TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=22,
 })
@@ -755,21 +948,21 @@ local ClockLabel = label(Header, {
 local function headerBtn(txt, posX, col)
     local b = button(Header, {
         Size=UDim2.fromOffset(28,28), Position=UDim2.new(1,posX,0,17),
-        BackgroundColor3=col or Color3.fromRGB(35,18,19),
+        BackgroundColor3=col or Color3.fromRGB(50,24,60),
         Text=txt, TextColor3=C.ice,
         Font=Enum.Font.GothamBold, TextSize=11,
         ZIndex=23,
     })
     round(b, 8)
     outline(b, C.line, 1)
-    wire(b, col or Color3.fromRGB(35,18,19), C.cardHot)
+    wire(b, col or Color3.fromRGB(50,24,60), C.cardHot)
     return b
 end
 
 local MinBtn      = headerBtn("─", -132, nil)
-local ModeBtn     = headerBtn("F", -100, nil)
+local ModeBtn     = headerBtn("☰", -100, nil)
 local SettingsBtn = headerBtn("⚙", -68, nil)
-local CloseBtn    = headerBtn("✕", -36, Color3.fromRGB(88,29,24))
+local CloseBtn    = headerBtn("☠", -36, Color3.fromRGB(96,18,30))
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- SIDEBAR NAVIGATION
@@ -780,7 +973,7 @@ local Side = frame(Inner, {
     BackgroundColor3 = C.sidebar,
     ZIndex           = 14,
 })
-fillGradient(Side, Color3.fromRGB(14,8,11), Color3.fromRGB(7,4,6), 90)
+fillGradient(Side, Color3.fromRGB(23,11,28), Color3.fromRGB(17,8,20), 90)
 -- right border
 frame(Side, {
     Size=UDim2.new(0,1,1,0), Position=UDim2.new(1,-1,0,0),
@@ -794,9 +987,9 @@ frame(Side, {
 
 -- user info panel at top of sidebar
 local UserPanel = frame(Side, {
-    Size=UDim2.new(1,0,0,74), BackgroundColor3=Color3.fromRGB(17,9,11), ZIndex=15,
+    Size=UDim2.new(1,0,0,74), BackgroundColor3=Color3.fromRGB(27,12,32), ZIndex=15,
 })
-fillGradient(UserPanel, Color3.fromRGB(33,17,19), Color3.fromRGB(17,9,11), 135)
+fillGradient(UserPanel, Color3.fromRGB(49,23,58), Color3.fromRGB(27,12,32), 135)
 frame(UserPanel, {
     Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1),
     BackgroundColor3=C.line, ZIndex=16,
@@ -826,7 +1019,7 @@ label(UserPanel, {
 })
 
 local NavScroll = new("ScrollingFrame", Side, {
-    Size=UDim2.new(1,0,1,-130), Position=UDim2.fromOffset(0,74),
+    Size=UDim2.new(1,0,1,-184), Position=UDim2.fromOffset(0,74),
     BackgroundTransparency=1,
     ScrollBarThickness=0,
     CanvasSize=UDim2.fromOffset(0,0),
@@ -838,32 +1031,32 @@ listLayout(NavScroll, Enum.FillDirection.Vertical, 2)
 local NavButtons = {}
 for _, pg in ipairs(Pages) do
     local btn = button(NavScroll, {
-        Size=UDim2.new(1,-12,0,34), BackgroundColor3=Color3.fromRGB(11,6,8),
+        Size=UDim2.new(1,-12,0,34), BackgroundColor3=C.sidebar,
         Text="  "..pg.icon.."  "..pg.label, TextColor3=C.text,
         Font=Enum.Font.GothamSemibold, TextSize=11,
         TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
     })
     round(btn, 10)
     inset(btn, 6,0,0,0)
-    wire(btn, Color3.fromRGB(11,6,8), C.cardHot)
+    wire(btn, function() return pg.id == CurrentPage and C.navActive or C.sidebar end, C.cardHot)
     NavButtons[pg.id] = btn
 end
 
 -- About link at bottom of sidebar
 local AboutBtn = button(Side, {
     Size=UDim2.new(1,0,0,34), Position=UDim2.new(0,0,1,-96),
-    BackgroundColor3=Color3.fromRGB(11,6,8),
-    Text="  ℹ  About LP10", TextColor3=C.muted,
+    BackgroundColor3=C.sidebar,
+    Text="  🦇  About LP10", TextColor3=C.muted,
     Font=Enum.Font.GothamSemibold, TextSize=10,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
 })
 round(AboutBtn, 10)
-wire(AboutBtn, Color3.fromRGB(11,6,8), C.cardHot)
+wire(AboutBtn, function() return CurrentPage == "About" and C.navActive or C.sidebar end, C.cardHot)
 
 -- Version tag at sidebar bottom
 label(Side, {
-    Size=UDim2.new(1,0,0,22), Position=UDim2.new(0,0,1,-36),
-    Text="v8  ULTIMATE  •  "..tostring(SCRIPT_COUNT).." SCRIPTS",
+    Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,0,1,-52),
+    Text="v8  HALLOWEEN  •  "..tostring(SCRIPT_COUNT).." SCRIPTS",
     TextColor3=C.dim, Font=Enum.Font.Gotham, TextSize=8,
     ZIndex=15,
 })
@@ -881,10 +1074,10 @@ local Content = frame(Inner, {
 -- Subheader strip
 local SubHeader = frame(Content, {
     Size=UDim2.new(1,0,0,52),
-    BackgroundColor3=Color3.fromRGB(15,8,10),
+    BackgroundColor3=Color3.fromRGB(25,12,30),
     ZIndex=11,
 })
-fillGradient(SubHeader, Color3.fromRGB(24,12,14), Color3.fromRGB(14,8,11), 0)
+fillGradient(SubHeader, Color3.fromRGB(37,17,44), Color3.fromRGB(23,11,28), 0)
 frame(SubHeader, {
     Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1),
     BackgroundColor3=C.line, ZIndex=12,
@@ -893,12 +1086,12 @@ frame(SubHeader, {
 local PageTitle = label(SubHeader, {
     Size=UDim2.new(0.55,0,0,24), Position=UDim2.fromOffset(16,8),
     Text="Welcome back", TextColor3=C.white,
-    Font=Enum.Font.GothamBold, TextSize=15,
+    Font=Enum.Font.Creepster, TextSize=20,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=12,
 })
 local PageSub = label(SubHeader, {
     Size=UDim2.new(0.6,0,0,16), Position=UDim2.fromOffset(16,32),
-    Text="Your command center.", TextColor3=C.muted,
+    Text="Your haunted command center.", TextColor3=C.muted,
     Font=Enum.Font.Gotham, TextSize=9,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=12,
 })
@@ -917,7 +1110,7 @@ label(SearchWrap, {
 })
 local SearchBox = input(SearchWrap, {
     Size=UDim2.fromScale(1,1), BackgroundTransparency=1,
-    Text="", PlaceholderText="Search scripts…",
+    Text="", PlaceholderText="Search the crypt…",
     TextColor3=C.white, PlaceholderColor3=C.muted,
     Font=Enum.Font.Gotham, TextSize=11,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=13,
@@ -934,7 +1127,7 @@ local SearchClear = button(SearchWrap, {
 local CatStrip = frame(Content, {
     Size=UDim2.new(1,0,0,38),
     Position=UDim2.fromOffset(0,52),
-    BackgroundColor3=Color3.fromRGB(14,8,11),
+    BackgroundColor3=Color3.fromRGB(22,10,26),
     ZIndex=11,
 })
 frame(CatStrip, {
@@ -956,7 +1149,7 @@ local function setCat(id)
     ActiveCat = id
     for cid, cb in pairs(CatButtons) do
         local on = cid == id
-        cb.BackgroundColor3 = on and C.royal or Color3.fromRGB(26,14,17)
+        cb.BackgroundColor3 = on and C.royal or Color3.fromRGB(34,16,40)
         cb.TextColor3 = on and C.white or C.muted
     end
 end
@@ -965,7 +1158,7 @@ for _, cat in ipairs(CATS) do
     local cb = button(CatScroll, {
         Size=UDim2.fromOffset(0,26),
         AutomaticSize=Enum.AutomaticSize.X,
-        BackgroundColor3=cat.id=="All" and C.royal or Color3.fromRGB(26,14,17),
+        BackgroundColor3=cat.id=="All" and C.royal or Color3.fromRGB(34,16,40),
         Text="  "..cat.icon.." "..cat.label.."  ",
         TextColor3=cat.id=="All" and C.white or C.muted,
         Font=Enum.Font.GothamSemibold, TextSize=10,
@@ -994,8 +1187,15 @@ local Body = new("ScrollingFrame", Content, {
     ZIndex=11,
     ClipsDescendants=true,
 })
-inset(Body, 14,14,14,24)
-listLayout(Body, Enum.FillDirection.Vertical, 10)
+local BodyPad = inset(Body, 14,14,14,24)
+local BodyLayout = listLayout(Body, Enum.FillDirection.Vertical, 10)
+local function applyCompact()
+    local c = Settings.compactMode
+    BodyLayout.Padding = UDim.new(0, c and 5 or 10)
+    BodyPad.PaddingLeft   = UDim.new(0, c and 8 or 14)
+    BodyPad.PaddingRight  = UDim.new(0, c and 8 or 14)
+    BodyPad.PaddingTop    = UDim.new(0, c and 8 or 14)
+end
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- DETAIL PANEL
@@ -1007,7 +1207,7 @@ local Detail = frame(Inner, {
     Visible=false,
     ZIndex=60,
 })
-fillGradient(Detail, Color3.fromRGB(32,16,20), C.surface, 135)
+fillGradient(Detail, Color3.fromRGB(51,24,61), C.surface, 135)
 
 local DetailTop = frame(Detail, {
     Size=UDim2.new(1,0,0,136), BackgroundTransparency=1, ZIndex=61,
@@ -1033,7 +1233,7 @@ round(DetailIcon, 18)
 fillGradient(DetailIcon, C.electric, C.royal, 135)
 glow(DetailIcon, 100, C.electric, 0.74, UDim2.new(0.5,-50,0.5,-50))
 local DetailIconLbl = label(DetailIcon, {
-    Size=UDim2.fromScale(1,1), Text="👻",
+    Size=UDim2.fromScale(1,1), Text="▶",
     TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=20, ZIndex=63,
 })
 
@@ -1058,95 +1258,174 @@ local DetailMeta = label(DetailTop, {
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
 })
 
-label(Detail, {
-    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,148),
-    Text="HALLOWEEN CATALOG NOTE", TextColor3=C.ice,
+local DetailScroll = new("ScrollingFrame", Detail, {
+    Size=UDim2.new(1,0,1,-248), Position=UDim2.fromOffset(0,142),
+    BackgroundTransparency=1, BorderSizePixel=0,
+    ScrollBarThickness=3, ScrollBarImageColor3=C.royal,
+    CanvasSize=UDim2.fromOffset(0,0), AutomaticCanvasSize=Enum.AutomaticSize.Y,
+    ZIndex=61,
+})
+inset(DetailScroll, 16,16,4,12)
+listLayout(DetailScroll, Enum.FillDirection.Vertical, 10)
+
+label(DetailScroll, {
+    Size=UDim2.new(1,0,0,16), LayoutOrder=1,
+    Text="ABOUT THIS SCRIPT", TextColor3=C.ice,
     Font=Enum.Font.GothamBold, TextSize=9,
-    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=61,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
 })
-local DetailDesc = label(Detail, {
-    Size=UDim2.new(1,-32,0,86), Position=UDim2.fromOffset(16,172),
+local DetailDesc = label(DetailScroll, {
+    Size=UDim2.new(1,0,0,40), LayoutOrder=2, AutomaticSize=Enum.AutomaticSize.Y,
     Text="", TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=12,
-    TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=61,
+    TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left,
+    TextYAlignment=Enum.TextYAlignment.Top, ZIndex=62,
 })
 
--- Exec count for this script
-local DetailExecCount = label(Detail, {
-    Size=UDim2.new(1,-32,0,20), Position=UDim2.fromOffset(16,264),
+local DetailExecCount = label(DetailScroll, {
+    Size=UDim2.new(1,0,0,18), LayoutOrder=3,
     Text="", TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=10,
-    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=61,
+    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62,
 })
 
-local DetailFav = button(Detail, {
-    Size=UDim2.new(0.5,-22,0,40), Position=UDim2.fromOffset(16,290),
+local ActionRow = frame(DetailScroll, {
+    Size=UDim2.new(1,0,0,40), BackgroundTransparency=1, LayoutOrder=4, ZIndex=62,
+})
+local DetailFav = button(ActionRow, {
+    Size=UDim2.new(0.5,-5,1,0), Position=UDim2.fromOffset(0,0),
     BackgroundColor3=C.card, Text="★  FAVORITE",
-    TextColor3=C.yellow, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=61,
+    TextColor3=C.yellow, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=63,
 })
 round(DetailFav, 11)
 outline(DetailFav, C.line, 1)
 wire(DetailFav, C.card, C.cardHot)
 
-local DetailPin = button(Detail, {
-    Size=UDim2.new(0.5,-22,0,40), Position=UDim2.new(0.5,6,0,290),
+local DetailPin = button(ActionRow, {
+    Size=UDim2.new(0.5,-5,1,0), Position=UDim2.new(0.5,5,0,0),
     BackgroundColor3=C.card, Text="◆  PIN",
-    TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=61,
+    TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=10, ZIndex=63,
 })
 round(DetailPin, 11)
 outline(DetailPin, C.line, 1)
 wire(DetailPin, C.card, C.cardHot)
 
-local DetailCopyBtn = button(Detail, {
-    Size=UDim2.new(1,-32,0,36), Position=UDim2.fromOffset(16,342),
-    BackgroundColor3=C.card, Text="🕸  CODE NOT INCLUDED",
-    TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=61,
+local DetailCopyBtn = button(DetailScroll, {
+    Size=UDim2.new(1,0,0,36), LayoutOrder=5,
+    BackgroundColor3=C.card, Text="⎘  COPY SCRIPT CODE",
+    TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=62,
 })
 round(DetailCopyBtn, 11)
 outline(DetailCopyBtn, C.line, 1)
 wire(DetailCopyBtn, C.card, C.cardHot)
-DetailCopyBtn.Active = false
-DetailCopyBtn.Selectable = false
+
+local DetailNotesBtn = button(DetailScroll, {
+    Size=UDim2.new(1,0,0,36), LayoutOrder=6,
+    BackgroundColor3=C.card, Text="📝  NOTES",
+    TextColor3=C.violet, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=62,
+})
+round(DetailNotesBtn, 11)
+outline(DetailNotesBtn, C.line, 1)
+wire(DetailNotesBtn, C.card, C.cardHot)
 
 local DetailExecute = button(Detail, {
-    Size=UDim2.new(1,-32,0,52), Position=UDim2.new(0,16,1,-72),
-    BackgroundColor3=C.electric, Text="👻  PREVIEW ONLY",
-    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=13, ZIndex=61,
+    Size=UDim2.new(1,-32,0,50), Position=UDim2.new(0,16,1,-100),
+    BackgroundColor3=C.electric, Text="🎃  CAST SPELL  (EXECUTE)",
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=13, ZIndex=63,
 })
 round(DetailExecute, 14)
 fillGradient(DetailExecute, C.electric, C.royal, 0)
 glow(DetailExecute, 160, C.electric, 0.78, UDim2.new(0.5,-80,0.5,-80))
 wire(DetailExecute, C.electric, C.royal)
-DetailExecute.Active = false
-DetailExecute.Selectable = false
 
 -- ════════════════════════════════════════════════════════════════════════════
--- PREVIEW ACTIONS (NO SCRIPT EXECUTION)
+-- SCRIPT EXECUTION ENGINE
 -- ════════════════════════════════════════════════════════════════════════════
 local CurrentScript = nil
+local lastExecTime = {}
+local detailToken = 0
 
 local function execScript(data)
-    if not data then return false end
-    toast("Preview only", "This Halloween UI preview contains no runnable scripts.", C.orange)
-    return false
+    if not data then return end
+    local now = os.clock()
+    if lastExecTime[data.N] and (now - lastExecTime[data.N]) < 1.2 then
+        toast("Wait", "Please wait before casting this script again.", C.yellow)
+        return
+    end
+    lastExecTime[data.N] = now
+
+    if haptic then haptic(0.55) end
+    play("exec")
+    addRecent(data.N)
+    Persist.execCount = (Persist.execCount or 0) + 1
+    Persist.totalExecs[data.N] = (Persist.totalExecs[data.N] or 0) + 1
+    Persist.lastUsed[data.N] = os.time()
+    saveUsageFile()
+
+    -- Update recent games
+    if GAME_NAME ~= "Unknown Experience" then
+        for i, g in ipairs(Persist.recentGames) do
+            if g == GAME_NAME then table.remove(Persist.recentGames, i); break end
+        end
+        if #Persist.recentGames >= 10 then
+            table.remove(Persist.recentGames, #Persist.recentGames)
+        end
+        table.insert(Persist.recentGames, 1, GAME_NAME)
+    end
+
+    toast("Casting spell", data.N, C.electric)
+
+    task.spawn(function()
+        local ok, err = pcall(function()
+            local compile = loadstring or load
+            local fn, compileErr = compile(data.S)
+            if not fn then error(compileErr or "script failed to compile", 0) end
+            fn()
+        end)
+        if ok then
+            task.delay(0.6, function()
+                toast("Done", data.N.." executed successfully.", C.green)
+            end)
+            if checkMilestones then task.delay(0.8, checkMilestones) end
+            if showRating then task.delay(2.5, function() showRating(data) end) end
+        else
+            toast("Cursed!", tostring(err):sub(1,80), C.red)
+        end
+    end)
 end
 
 local function closeDetail()
     play("slide")
+    detailToken = detailToken + 1
+    local myToken = detailToken
     Detail.Visible = true
     tw(Detail, 0.28, {Position=UDim2.new(1,20,0,62)}, nil, Enum.EasingDirection.In)
     task.delay(0.3, function()
-        if Detail then Detail.Visible = false end
+        if Detail and detailToken == myToken then Detail.Visible = false end
     end)
 end
 
 local function openDetail(data)
     if not data then return end
     CurrentScript = data
+    detailToken = detailToken + 1
     DetailTitle.Text = data.N
-    DetailMeta.Text  = (data.Cat or "Universal"):upper().."   /   "..(data.New and "★ NEW" or "CATALOG PREVIEW").."   /   UI ONLY"
-    DetailDesc.Text  = "Halloween catalog preview. This entry has no source code and cannot be executed."
+    DetailMeta.Text  = (data.Cat or "Universal"):upper().."   /   "..(data.New and "🔥 NEW" or "READY").."   /   DELTA COMPATIBLE"
+
+    local desc = data.F or ("Script for "..data.N..". Delta compatible. Works on mobile and PC.")
+    local meta = ScriptMeta and ScriptMeta[data.N]
+    if meta then
+        if meta.tags then
+            local tagList = {}
+            for _, t in ipairs(meta.tags) do table.insert(tagList, "#"..t) end
+            if #tagList > 0 then desc = desc.."\n\nTags: "..table.concat(tagList, "  ") end
+        end
+        if meta.tested then desc = desc.."\nTested: "..meta.tested end
+        if meta.added  then desc = desc.."\nAdded: "..meta.added end
+    end
+    DetailDesc.Text = desc
+
     DetailNewBadge.Visible = data.New == true
     local execd = Persist.totalExecs[data.N] or 0
-    DetailExecCount.Text = "Preview only • no code payload stored"
+    DetailExecCount.Text = execd > 0 and ("You've cast this "..execd.." time"..(execd>1 and "s" or "")) or "Never cast yet"
     DetailFav.Text = has(Persist.favorites, data.N) and "★  FAVORITED" or "★  FAVORITE"
     DetailFav.TextColor3 = has(Persist.favorites, data.N) and C.yellow or C.muted
     DetailPin.Text = has(Persist.pinned, data.N) and "◆  PINNED" or "◆  PIN"
@@ -1155,6 +1434,7 @@ local function openDetail(data)
     local words = {}
     for w in data.N:gmatch("%S+") do table.insert(words, w) end
     DetailIconLbl.Text = words[1] and string.sub(words[1],1,1):upper() or "▶"
+    DetailScroll.CanvasPosition = Vector2.new(0,0)
 
     play("slide")
     Detail.Visible = true
@@ -1170,8 +1450,9 @@ DetailFav.MouseButton1Click:Connect(function()
     local on = flip(Persist.favorites, CurrentScript.N)
     DetailFav.Text = on and "★  FAVORITED" or "★  FAVORITE"
     DetailFav.TextColor3 = on and C.yellow or C.muted
-    spring(DetailFav, 0.2, {BackgroundColor3 = on and Color3.fromRGB(48,38,8) or C.card})
+    spring(DetailFav, 0.2, {BackgroundColor3 = on and Color3.fromRGB(70,48,8) or C.card})
     task.delay(0.3, function() tw(DetailFav, 0.2, {BackgroundColor3=C.card}) end)
+    saveUsageFile()
     toast(on and "Added to Favorites" or "Removed from Favorites", CurrentScript.N, C.yellow)
 end)
 
@@ -1181,10 +1462,33 @@ DetailPin.MouseButton1Click:Connect(function()
     local on = flip(Persist.pinned, CurrentScript.N)
     DetailPin.Text = on and "◆  PINNED" or "◆  PIN"
     DetailPin.TextColor3 = on and C.ice or C.muted
+    saveUsageFile()
     toast(on and "Pinned" or "Unpinned", CurrentScript.N, C.ice)
 end)
 
--- Copy and execute controls are intentionally disabled in this UI-only preview.
+DetailCopyBtn.MouseButton1Click:Connect(function()
+    if not CurrentScript then return end
+    play("tap")
+    setClip(CurrentScript.S)
+    toast("Copied", "Script code copied to clipboard.", C.green)
+    DetailCopyBtn.Text = "✓  COPIED!"
+    DetailCopyBtn.TextColor3 = C.green
+    task.delay(2, function()
+        if DetailCopyBtn then
+            DetailCopyBtn.Text = "⎘  COPY SCRIPT CODE"
+            DetailCopyBtn.TextColor3 = C.ice
+        end
+    end)
+end)
+
+DetailNotesBtn.MouseButton1Click:Connect(function()
+    play("tap")
+    if CurrentScript and openNotes then openNotes(CurrentScript) end
+end)
+
+DetailExecute.MouseButton1Click:Connect(function()
+    execScript(CurrentScript)
+end)
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- PAGE RENDERING SYSTEM
@@ -1212,10 +1516,10 @@ end
 
 local function scriptIcon(data)
     local icons = {
-        Combat="⚔", Movement="↑", Teleport="⊛", Utility="⚙", Visual="◉"
+        Combat="💀", Movement="🦇", Teleport="🔮", Utility="🕷️", Visual="👻"
     }
-    if data.New then return "★" end
-    return icons[data.Cat] or "▶"
+    if data.New then return "🎃" end
+    return icons[data.Cat] or "🕯️"
 end
 
 local function actionCard(parent, title, desc, fn, col, order)
@@ -1225,7 +1529,7 @@ local function actionCard(parent, title, desc, fn, col, order)
     })
     round(item, 13)
     outline(item, C.line, 1)
-    fillGradient(item, Color3.fromRGB(25,13,15), C.card, 135)
+    fillGradient(item, Color3.fromRGB(45,21,54), C.card, 135)
     local accent = frame(item, {
         Size=UDim2.fromOffset(3,32), Position=UDim2.fromOffset(10,12),
         BackgroundColor3=col or C.electric, ZIndex=17,
@@ -1265,7 +1569,7 @@ local function statBox(parent, val, cap, col, order)
     })
     round(item, 14)
     outline(item, C.line, 1)
-    fillGradient(item, Color3.fromRGB(25,13,15), C.card, 135)
+    fillGradient(item, Color3.fromRGB(45,21,54), C.card, 135)
     label(item, {
         Size=UDim2.new(1,-18,0,30), Position=UDim2.fromOffset(10,10),
         Text=val, TextColor3=col or C.white,
@@ -1289,13 +1593,13 @@ local function scriptCard(parent, data, order)
     round(item, 14)
     local itemOutline = outline(
         item,
-        data.Rainbow and Color3.fromRGB(255, 0, 0) or (data.New and C.red or C.line),
+        data.Rainbow and C.electric or (data.New and C.red or C.line),
         data.Rainbow and 2 or (data.New and 1.3 or 1)
     )
     if data.Rainbow then
         table.insert(RGBTargets, itemOutline)
     end
-    fillGradient(item, Color3.fromRGB(30,15,18), C.card, 135)
+    fillGradient(item, Color3.fromRGB(42,20,50), C.card, 135)
 
     if data.Rainbow then
         glow(item, 150, C.electric, 0.80, UDim2.new(0,-30,0.5,-75))
@@ -1305,7 +1609,7 @@ local function scriptCard(parent, data, order)
 
     local iconF = frame(item, {
         Size=UDim2.fromOffset(50,50), Position=UDim2.fromOffset(14,14),
-        BackgroundColor3=data.Rainbow and Color3.fromRGB(54,23,22) or (data.New and Color3.fromRGB(85,28,20) or Color3.fromRGB(30,15,18)),
+        BackgroundColor3=data.Rainbow and Color3.fromRGB(59,28,70) or (data.New and Color3.fromRGB(48,18,30) or Color3.fromRGB(52,24,62)),
         ZIndex=17,
     })
     round(iconF, 14)
@@ -1324,7 +1628,7 @@ local function scriptCard(parent, data, order)
     })
     label(item, {
         Size=UDim2.new(1,-170,0,18), Position=UDim2.fromOffset(78,40),
-        Text=(data.Cat or "Universal"):upper().."   /   "..(has(Persist.recent,data.N) and "RECENT" or "CATALOG PREVIEW"),
+        Text=(data.Cat or "Universal"):upper().."   /   "..(has(Persist.recent,data.N) and "RECENT" or "READY"),
         TextColor3=data.Rainbow and C.electric or (data.New and C.red or C.muted),
         Font=Enum.Font.GothamSemibold, TextSize=9,
         TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
@@ -1362,6 +1666,24 @@ local function scriptCard(parent, data, order)
         play("tap")
         openDetail(data)
     end)
+
+    -- right-click (PC) or long-press (mobile) shows the risk / tips tooltip
+    local holdId = 0
+    item.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton2 then
+            if showTooltip then showTooltip(data, inp.Position.X, inp.Position.Y) end
+        elseif inp.UserInputType == Enum.UserInputType.Touch then
+            holdId = holdId + 1
+            local myId, pos = holdId, inp.Position
+            task.delay(0.7, function()
+                if holdId == myId and showTooltip then showTooltip(data, pos.X, pos.Y) end
+            end)
+        end
+    end)
+    item.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.Touch then holdId = holdId + 1 end
+    end)
+    if UIS.TouchEnabled and enableSwipeExec then enableSwipeExec(item, data) end
     return item
 end
 
@@ -1369,8 +1691,8 @@ end
 -- PAGE: HOME
 -- ════════════════════════════════════════════════════════════════════════════
 local function buildHome()
-    PageTitle.Text = "Welcome back, "..LP.Name
-    PageSub.Text   = "Your LP10 command center — "..SCRIPT_COUNT.." catalog entries ready."
+    PageTitle.Text = "Happy Halloween, "..LP.Name
+    PageSub.Text   = "Your haunted LP10 command center — "..SCRIPT_COUNT.." spells ready."
 
     -- Hero banner
     local hero = frame(Body, {
@@ -1379,29 +1701,29 @@ local function buildHome()
     })
     round(hero, 18)
     outline(hero, C.line, 1)
-    fillGradient(hero, Color3.fromRGB(120,45,16), Color3.fromRGB(25,12,16), 0)
+    fillGradient(hero, Color3.fromRGB(96,38,8), Color3.fromRGB(28,13,34), 0)
     glow(hero, 220, C.electric, 0.82, UDim2.new(1,-200,0.5,-110))
 
     label(hero, {
         Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,14),
-        Text="LP10  /  HALLOWEEN UNIVERSAL", TextColor3=C.ice,
+        Text="LP10  /  🎃 HALLOWEEN ULTIMATE", TextColor3=C.ice,
         Font=Enum.Font.GothamBold, TextSize=9, ZIndex=17,
     })
     label(hero, {
-        Size=UDim2.new(0.7,0,0,40), Position=UDim2.fromOffset(16,34),
-        Text="Ready for your\nnext experience.",
-        TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=21,
+        Size=UDim2.new(0.7,0,0,58), Position=UDim2.fromOffset(16,34),
+        Text="Pick your spell,\nsurvive the night.",
+        TextColor3=C.white, Font=Enum.Font.Creepster, TextSize=26,
         TextXAlignment=Enum.TextXAlignment.Left,
         TextWrapped=true, ZIndex=17,
     })
     label(hero, {
         Size=UDim2.new(0.65,0,0,18), Position=UDim2.fromOffset(16,100),
-        Text=SCRIPT_COUNT.." catalogue entries  /  UI PREVIEW  /  "..GAME_NAME,
+        Text=SCRIPT_COUNT.." scripts risen  /  "..EXECUTOR.."  /  "..GAME_NAME,
         TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=10, ZIndex=17,
     })
     local heroBtn = button(hero, {
         Size=UDim2.fromOffset(132,38), Position=UDim2.new(1,-150,0.5,-19),
-        BackgroundColor3=C.electric, Text="BROWSE SCRIPTS",
+        BackgroundColor3=C.electric, Text="🎃 BROWSE SCRIPTS",
         TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=9, ZIndex=18,
     })
     round(heroBtn, 11)
@@ -1418,9 +1740,9 @@ local function buildHome()
         BackgroundTransparency=1, LayoutOrder=2, ZIndex=16,
     })
     listLayout(statsRow, Enum.FillDirection.Horizontal, 12)
-    statBox(statsRow, tostring(SCRIPT_COUNT),            "CATALOG ENTRIES", C.ice,    1)
+    statBox(statsRow, tostring(SCRIPT_COUNT),            "AVAILABLE SCRIPTS", C.ice,    1)
     statBox(statsRow, tostring(#Persist.favorites),      "FAVORITES",         C.yellow, 2)
-    statBox(statsRow, "OFF", "EXECUTION DISABLED", C.muted, 3)
+    statBox(statsRow, tostring(Persist.execCount or 0),  "TOTAL EXECUTIONS",  C.green,  3)
 
     sectionTitle(Body, "QUICK ACTIONS", 3)
     local quick = frame(Body, {
@@ -1452,27 +1774,31 @@ local function buildHome()
     end
 
     local cP = _G.LP10ChangePage
-    qa("Browse Catalog",   "Explore all preview entries",       function() if cP then cP("Scripts") end end,   C.electric, 1)
-    qa("Last Entry",       "Script execution is disabled in this preview.", function()
-        toast("Preview only", "Open a catalogue card to inspect it.", C.orange)
+    qa("Browse Scripts",   "Explore the full library",       function() if cP then cP("Scripts") end end,   C.electric, 1)
+    qa("Execute Last",     "Repeat your last run",           function()
+        if Persist.recent[1] then
+            for _, d in ipairs(Scripts) do
+                if d.N == Persist.recent[1] then execScript(d); break end
+            end
+        else toast("Nothing recent","Execute a script first.",C.yellow) end
     end, C.green, 2)
-    qa("Random Entry",     "Preview a random catalogue entry",        function() openDetail(Scripts[math.random(1,#Scripts)]) end, C.violet, 3)
+    qa("Random Script",    "Let the spirits choose",        function() openDetail(Scripts[math.random(1,#Scripts)]) end, C.violet, 3)
     qa("Settings",         "Tune the experience",            function() if cP then cP("Settings") end end,  C.yellow, 4)
     qa("Refresh View",     "Rebuild the library",            function()
         local r = _G.LP10Refresh; if r then r() end
-        toast("Refreshed",SCRIPT_COUNT.." catalog entries loaded.",C.electric)
+        toast("Refreshed",SCRIPT_COUNT.." scripts loaded.",C.electric)
     end, C.electric, 5)
     qa("Favorites",        "Your saved scripts",             function() if cP then cP("Favorites") end end, C.yellow, 6)
     qa("Pinned",           "Your pinned scripts",            function() if cP then cP("Pinned") end end,    C.ice,    7)
-    qa("Recent",           "Recently viewed",              function() if cP then cP("Recent") end end,    C.green,  8)
-    qa("GitHub link",      "Clipboard actions are disabled",      function() setClip("https://github.com/LPOLVO/LP10"); toast("Preview only","Clipboard actions are disabled in this preview.",C.orange) end, C.electric, 9)
+    qa("Recent",           "Recently executed",              function() if cP then cP("Recent") end end,    C.green,  8)
+    qa("Copy GitHub",      "Copy LP10 repository link",      function() setClip("https://github.com/LPOLVO/LP10"); toast("Copied","GitHub link on clipboard.",C.green) end, C.electric, 9)
     qa("Scroll to Top",    "Jump to the beginning",          function() Body.CanvasPosition=Vector2.new(0,0) end, C.ice, 10)
 
-    sectionTitle(Body, "RECENTLY VIEWED", 5)
+    sectionTitle(Body, "RECENTLY EXECUTED", 5)
     if #Persist.recent == 0 then
         label(Body, {
             Size=UDim2.new(1,0,0,44), LayoutOrder=6,
-            Text="Execution history is not available in this UI-only preview.",
+            Text="Execute a script to see it here.",
             TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
             TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
         })
@@ -1487,12 +1813,12 @@ local function buildHome()
         end
     end
 
-    sectionTitle(Body, "PREVIEW ACTIVITY", 9)
+    sectionTitle(Body, "MOST USED", 9)
     local popular = popularScripts(3)
     if #popular == 0 then
         label(Body, {
             Size=UDim2.new(1,0,0,44), LayoutOrder=10,
-            Text="Preview-only mode does not track script usage.",
+            Text="Your most-used scripts will appear here.",
             TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
             TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
         })
@@ -1533,26 +1859,33 @@ local function buildLibrary(page)
         Scripts="Script Library",
         Favorites="Favorites",
         Pinned="Pinned Scripts",
-        Recent="Recently Viewed",
+        Recent="Recently Executed",
         Popular="Most Used Scripts",
     }
     PageTitle.Text = titles[page] or "Script Library"
-    PageSub.Text   = page=="Scripts" and "Tap a script to inspect it before executing."
+    PageSub.Text   = page=="Scripts" and "Tap a script to inspect it before casting."
         or page=="Popular" and "Ranked by the number of times you have used each script."
         or "Your curated LP10 collection."
 
-    local list  = listForPage(page)
-    local query = (SearchBox.Text or ""):lower()
-    local visible = 0
+    local base  = listForPage(page)
+    local query = (SearchBox.Text or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    local list  = base
 
+    if query ~= "" and searchScripts then
+        local allowed = {}
+        for _, d in ipairs(base) do allowed[d.N] = true end
+        list = {}
+        for _, d in ipairs(searchScripts(query)) do
+            if allowed[d.N] then table.insert(list, d) end
+        end
+    end
+
+    local visible = 0
     for _, data in ipairs(list) do
-        -- category filter
         local catMatch = ActiveCat == "All"
             or (ActiveCat == "New" and data.New)
             or (data.Cat == ActiveCat)
-        -- search filter
-        local searchMatch = query == "" or data.N:lower():find(query, 1, true)
-        if catMatch and searchMatch then
+        if catMatch then
             visible = visible + 1
             scriptCard(Body, data, visible)
         end
@@ -1562,7 +1895,7 @@ local function buildLibrary(page)
         label(Body, {
             Size=UDim2.new(1,0,0,110), LayoutOrder=1,
             Text=query~="" and ('No matches for "'..SearchBox.Text..'"') or
-                 "Nothing here yet.\nPreview the catalog to fill this collection.",
+                 "The crypt is empty.\nCast scripts to fill this collection. 👻",
             TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=13,
             TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=16,
         })
@@ -1594,15 +1927,24 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 local function buildChangelog()
     PageTitle.Text = "Changelog"
-    PageSub.Text   = "What's new in LP10 Halloween Universal."
+    PageSub.Text   = "What's new in LP10 Halloween Edition."
     local entries = {
-        {"HALLOWEEN PALETTE", "Pumpkin orange, ember red, warm text, and midnight surfaces.", "NEW", C.orange},
-        {"UI-ONLY CATALOG", "All 42 names remain visible as non-runnable preview entries.", "SAFE", C.green},
-        {"EXECUTION DISABLED", "No payload source, external loader, or game automation is included.", "SAFE", C.yellow},
-        {"SESSION FAVORITES", "Favorites and pins remain in memory while this UI is open.", "INFO", C.violet},
-        {"SEASONAL AMBIENCE", "Floating ember colors, Halloween labels, and warm glow effects.", "NEW", C.ice},
-        {"SEARCH + FILTER", "Browse the catalogue by name and category.", "INFO", C.electric},
-        {"MOBILE LAYOUT", "The interface adapts to narrow viewports.", "INFO", C.green},
+        {"HALLOWEEN UPDATE",     "Full pumpkin-night makeover: new theme, spooky intro, floating spirits, lightning flashes, cobwebs and Halloween icons everywhere.", "NEW", C.orange},
+        {"BUG FIXES",            "Fixed double execution, invisible particles, button size drift, sidebar highlight, mobile navigation, detail panel overflow and leftover sounds after closing.", "FIXED", C.green},
+        {"+1 ASSASSIN LEVELING", "Added as the newest game entry with Auto Rebirth, Auto Stage, and Strength Farm. Its remote payload is unverified.", "NEW", C.green},
+        {"v8  ULTIMATE",         "Previous update added Steal From the Rich and retired older script highlights.", "CURRENT", C.electric},
+        {"GREEDY GROWERS",       "New script — auto farm, auto collect crops, speed boost. Delta & mobile compatible.", "NEW", C.green},
+        {"DRIVE CAR AND SLIDE",  "New script — auto inf coins, auto inf wins. Delta & mobile compatible.", "NEW", C.green},
+        {"SPEED VS GIANT",       "New script — cash box, speed upgrade toggle. Delta compatible.", "NEW", C.green},
+        {"NIGHT SHELL"   ,         "Full-screen, edge-to-edge shell with animated pumpkin-night background, real navigation, and application-style layout.", "IMPROVED", C.electric},
+        {"DETAIL PANEL",         "Scripts open in a dedicated inspect view with exec count, copy, favorite, pin, and execute.", "IMPROVED", C.violet},
+        {"ELECTRIC GLOW FX",     "All text pulses with a flame-orange stroke animation. Togglable in Settings.", "NEW", C.ice},
+        {"USAGE VAULT",          "Execution totals, most-used ranking, recent scripts, and last-used timestamps are saved to an executor-local JSON file when supported.", "NEW", C.green},
+        {"PERSISTENT STATE",     "Favorites, pinned, recent, and exec counts survive re-execution via getgenv() and the local usage vault.", "IMPROVED", C.yellow},
+        {"LIVE PERFORMANCE",     "Real-time FPS, ping, and memory display in the header bar. Auto-disables particles below 30fps.", "NEW", C.green},
+        {"SEARCH + FILTER",      "Live search bar plus category strip to filter by All, New, Universal, Combat, Movement, Teleport, Utility, Visual.", "IMPROVED", C.electric},
+        {"RESTORE ORB",          "Minimise LP10 to a floating orb, then tap to restore. Never blocks gameplay.", "NEW", C.violet},
+        {"MOBILE RESPONSIVE",    "Full adaptive layout for narrow viewports — sidebar hides and content expands to full width.", "IMPROVED", C.ice},
     }
     for i, e in ipairs(entries) do
         local item = actionCard(Body, e[1], e[2], nil, e[4], i)
@@ -1638,30 +1980,46 @@ local function makeToggle(parent, title, desc, key, order)
         spring(knob, 0.25, {Position=Settings[key] and UDim2.new(1,-21,0.5,-9) or UDim2.fromOffset(3,3)})
         if key == "performance" or key == "reduceMotion" then
             Settings.particles = not Settings.performance and not Settings.reduceMotion
+        elseif key == "blur" then
+            if Settings.blur and Main.Visible then
+                Blur.Enabled = true; tw(Blur, 0.3, {Size=12})
+            else
+                tw(Blur, 0.2, {Size=0})
+                task.delay(0.25, function() if Blur and not Settings.blur then Blur.Enabled = false end end)
+            end
+        elseif key == "sounds" then
+            pcall(function()
+                if ambientSound then
+                    if Settings.sounds then ambientSound:Play() else ambientSound:Stop() end
+                end
+            end)
+        elseif key == "compactMode" then
+            applyCompact()
         end
     end)
 end
 
 local function buildSettings()
     PageTitle.Text = "Settings"
-    PageSub.Text   = "Tune the Halloween preview on your device."
+    PageSub.Text   = "Tune the haunting to your device."
     sectionTitle(Body, "APPEARANCE & MOTION", 1)
     makeToggle(Body, "Reduce motion",     "Replace animations with quick fades.",          "reduceMotion", 2)
-    makeToggle(Body, "Pumpkin glow",     "Warm pumpkin-colored text glow.",          "glow",         3)
-    makeToggle(Body, "Floating embers",  "Floating ember-colored particles.",       "particles",    4)
-    makeToggle(Body, "Background blur",   "Soften the background behind this interface.",               "blur",         5)
-    makeToggle(Body, "UI sounds",         "Tap and navigation audio feedback.",        "sounds",       6)
+    makeToggle(Body, "Flame glow",        "Animated flame stroke on all text.",              "glow",         3)
+    makeToggle(Body, "Floating spirits",  "Bats, ghosts and pumpkins drifting upward.",      "particles",    4)
+    makeToggle(Body, "Background blur",   "Blur the game world behind LP10.",               "blur",         5)
+    makeToggle(Body, "UI sounds",         "Tap, slide, and execute audio feedback.",        "sounds",       6)
     makeToggle(Body, "Performance mode",  "Auto-disable heavy effects. Saves FPS.",         "performance",  7)
     makeToggle(Body, "Compact mode",      "Reduce padding for small screens.",              "compactMode",  8)
+    makeToggle(Body, "Lightning flashes","Purple storm flashes inside LP10.",               "lightning",    8)
     sectionTitle(Body, "ACTIONS", 9)
     actionCard(Body, "Clear favorites",    "Remove all your favorited scripts",          function() Persist.favorites = {}; toast("Cleared","All favorites removed.",C.yellow) end, C.yellow, 10)
     actionCard(Body, "Clear pinned",       "Remove all your pinned scripts",             function() Persist.pinned = {}; toast("Cleared","All pins removed.",C.ice) end, C.ice, 11)
-    actionCard(Body, "Clear recent",       "Clear preview history",                    function() Persist.recent = {}; saveUsageFile(); toast("Cleared","Recent history cleared.",C.green) end, C.green, 12)
-    actionCard(Body, "Reset preview counts",  "Reset in-memory preview counters",       function() Persist.totalExecs = {}; Persist.execCount = 0; Persist.lastUsed = {}; saveUsageFile(); toast("Reset","Preview counters cleared.",C.muted) end, C.muted, 13)
-    actionCard(Body, "Preview mode", "Favorites and pins are session-only; files are not written.", nil, C.orange, 14)
+    actionCard(Body, "Clear recent",       "Clear execution history",                    function() Persist.recent = {}; saveUsageFile(); toast("Cleared","Recent history cleared.",C.green) end, C.green, 12)
+    actionCard(Body, "Reset exec counts",  "Reset all execution counters to zero",       function() Persist.totalExecs = {}; Persist.execCount = 0; Persist.lastUsed = {}; saveUsageFile(); toast("Reset","Execution counts cleared.",C.muted) end, C.muted, 13)
+    actionCard(Body, "Save usage vault",   "Write recent and popular data to local JSON", function() if saveUsageFile() then toast("Saved","Usage vault updated on this device.",C.green) else toast("Unavailable","This executor has no file API.",C.yellow) end end, C.green, 14)
     sectionTitle(Body, "INFO", 15)
-    actionCard(Body, "GitHub link", "Clipboard actions are disabled in this preview.", function() toast("Preview only","Clipboard actions are disabled in this preview.",C.orange) end, C.electric, 16)
-    actionCard(Body, "Instagram link",     "Clipboard actions are disabled",           function() setClip("https://www.instagram.com/4me.h4mz4_?igsh=MW9sa20yejExaGo5Nw=="); toast("Preview only","Clipboard actions are disabled in this preview.",C.orange) end, C.pink, 17)
+    actionCard(Body, "Copy GitHub",        "Copy the LP10 repository URL",              function() setClip("https://github.com/LPOLVO/LP10"); toast("Copied","GitHub link on clipboard.",C.green) end, C.electric, 16)
+    actionCard(Body, "Copy Instagram",     "Copy @4me.h4mz4_ Instagram link",           function() setClip("https://www.instagram.com/4me.h4mz4_?igsh=MW9sa20yejExaGo5Nw=="); toast("Copied","Instagram link on clipboard.",C.pink) end, C.pink, 17)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -1669,56 +2027,76 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 local function buildAbout()
     PageTitle.Text = "About LP10"
-    PageSub.Text   = "Halloween-themed, UI-only catalogue preview."
+    PageSub.Text   = "Personal script hub — Halloween Edition."
     local about = frame(Body, {
         Size=UDim2.new(1,0,0,200),
         BackgroundColor3=C.card, LayoutOrder=1, ZIndex=16,
     })
     round(about, 18)
     outline(about, C.line, 1)
-    fillGradient(about, Color3.fromRGB(45,20,22), C.card, 135)
+    fillGradient(about, Color3.fromRGB(74,35,88), C.card, 135)
     glow(about, 180, C.electric, 0.82, UDim2.new(1,-160,0.5,-90))
-    label(about, {Size=UDim2.new(1,-30,0,32), Position=UDim2.fromOffset(16,14), Text="LP10 HALLOWEEN", TextColor3=C.white, Font=Enum.Font.GothamBold, TextSize=22, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
-    label(about, {Size=UDim2.new(1,-30,0,72), Position=UDim2.fromOffset(16,52), Text="A Halloween-themed, UI-only catalog preview for the LP10 collection. It displays entries and session-only favorites; it does not include or run scripts. Full-screen ember shell with search, categories, favorites, pins, and session-only preferences. No script code or game automation is included.", TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=11, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
-    label(about, {Size=UDim2.new(1,-30,0,20), Position=UDim2.fromOffset(16,136), Text="HALLOWEEN UI EDITION  /  v8  /  "..SCRIPT_COUNT.." CATALOG ENTRIES  /  "..PREVIEW_MODE, TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=9, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    label(about, {Size=UDim2.new(1,-30,0,32), Position=UDim2.fromOffset(16,14), Text="LP10 UNIVERSAL", TextColor3=C.electric, Font=Enum.Font.Creepster, TextSize=30, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    label(about, {Size=UDim2.new(1,-30,0,72), Position=UDim2.fromOffset(16,52), Text="A focused launcher for the LP10 collection, dressed for Halloween. Built for Delta, Codex, Xeno, Arceus X, mobile, and PC. Full-screen pumpkin-night shell, "..SCRIPT_COUNT.." scripts, live HUD, favorites, pins, recent history, most-used ranking, local usage vault, and flame glow FX.", TextColor3=C.text, Font=Enum.Font.Gotham, TextSize=11, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
+    label(about, {Size=UDim2.new(1,-30,0,20), Position=UDim2.fromOffset(16,136), Text="HALLOWEEN EDITION  /  v8  /  "..SCRIPT_COUNT.." SCRIPTS  /  "..EXECUTOR, TextColor3=C.ice, Font=Enum.Font.GothamBold, TextSize=9, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
     label(about, {Size=UDim2.new(1,-30,0,20), Position=UDim2.fromOffset(16,158), Text="BY @LPOLVO (HAMZA)  /  instagram.com/4me.h4mz4_", TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17})
-    actionCard(Body, "Instagram",  "External links are not opened in this UI preview.", function() toast("Preview only","External links are not opened here.",C.orange) end, C.pink, 2)
-    actionCard(Body, "GitHub",     "External links are not opened in this UI preview.", function() toast("Preview only","External links are not opened here.",C.orange) end, C.electric, 3)
+    actionCard(Body, "Instagram",  "Open @4me.h4mz4_ on Instagram", function() setClip("https://www.instagram.com/4me.h4mz4_?igsh=MW9sa20yejExaGo5Nw=="); toast("Copied","Instagram link on clipboard.",C.pink) end,    C.pink, 2)
+    actionCard(Body, "GitHub",     "Open LP10 repository",          function() setClip("https://github.com/LPOLVO/LP10"); toast("Copied","GitHub link on clipboard.",C.green) end,                                         C.electric, 3)
     actionCard(Body, "Changelog",  "See what's new in v8",          function() local cP=_G.LP10ChangePage; if cP then cP("Changelog") end end, C.violet, 4)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- REFRESH & NAVIGATION
 -- ════════════════════════════════════════════════════════════════════════════
-local CurrentPage = Persist.page or "Home"
+local LIBRARY_PAGES = {Scripts=true, Favorites=true, Pinned=true, Recent=true, Popular=true}
+local suppressSearch = false
+local sideOpen, lastNarrow = true, nil
+local applyLayout   -- defined in the layout section below
+
+local function updateNav()
+    for id, btn in pairs(NavButtons) do
+        local active = id == CurrentPage
+        tw(btn, 0.14, {BackgroundColor3 = active and C.navActive or C.sidebar})
+        btn.TextColor3 = active and C.white or C.text
+    end
+    AboutBtn.BackgroundColor3 = CurrentPage == "About" and C.navActive or C.sidebar
+end
 
 local function refresh()
+    local lib = LIBRARY_PAGES[CurrentPage] == true
+    CatStrip.Visible = lib
+    Body.Position = UDim2.fromOffset(0, lib and 90 or 52)
+    Body.Size     = UDim2.new(1, 0, 1, lib and -90 or -52)
+
     wipeBody()
     if     CurrentPage == "Home"      then buildHome()
     elseif CurrentPage == "Games"     then buildGames()
     elseif CurrentPage == "Changelog" then buildChangelog()
     elseif CurrentPage == "Settings"  then buildSettings()
     elseif CurrentPage == "About"     then buildAbout()
+    elseif CurrentPage == "Stats"     then buildStats()
+    elseif CurrentPage == "Notifs"    then buildNotifCenter()
     else                                   buildLibrary(CurrentPage)
     end
-    -- Update nav button states
-    for id, btn in pairs(NavButtons) do
-        local active = id == CurrentPage
-        btn.BackgroundColor3 = active and Color3.fromRGB(150,55,20) or Color3.fromRGB(11,6,8)
-        for _, ch in ipairs(btn:GetChildren()) do
-            if ch:IsA("TextLabel") then
-                ch.TextColor3 = active and C.white or C.text
-            end
-        end
-    end
+    updateNav()
 end
 
 local function changePage(id)
     CurrentPage = id
     Persist.page = id
+    suppressSearch = true
     SearchBox.Text = ""
+    suppressSearch = false
     SearchClear.Visible = false
     Body.CanvasPosition = Vector2.new(0,0)
+    if Detail.Visible then
+        Detail.Visible = false
+        Detail.Position = UDim2.new(1,20,0,62)
+    end
+    if lastNarrow and sideOpen then
+        sideOpen = false
+        if applyLayout then applyLayout() end
+    end
     play("slide")
     refresh()
 end
@@ -1740,8 +2118,8 @@ AboutBtn.MouseButton1Click:Connect(function() changePage("About") end)
 -- ════════════════════════════════════════════════════════════════════════════
 local RestoreOrb = button(GUI, {
     Size=UDim2.fromOffset(60,60), Position=UDim2.new(0,16,0.5,-30),
-    BackgroundColor3=C.royal, Text="LP",
-    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=17,
+    BackgroundColor3=C.royal, Text="🎃",
+    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=28,
     Visible=false, ZIndex=80,
 })
 round(RestoreOrb, 30)
@@ -1750,51 +2128,67 @@ fillGradient(RestoreOrb, C.electric, C.royal, 135)
 glow(RestoreOrb, 130, C.electric, 0.74, UDim2.new(0.5,-65,0.5,-65))
 wire(RestoreOrb, C.royal, C.electric)
 
-RestoreOrb.MouseButton1Click:Connect(function()
+local function restoreMain()
     RestoreOrb.Visible = false
-    Main.Visible = true
+    if QuickBar then QuickBar.Visible = false end
+    Main.Visible  = true
     Main.Size     = UDim2.fromScale(0,0)
     Main.Position = UDim2.fromScale(0.5,0.5)
-    if Settings.blur then Blur.Enabled=true; tw(Blur,0.36,{Size=12}) end
+    if Settings.blur then Blur.Enabled = true; tw(Blur, 0.36, {Size=12}) end
+    play("open")
     spring(Main, 0.44, {Size=UDim2.fromScale(1,1), Position=UDim2.fromScale(0,0)})
-    toast("LP10 Restored","Welcome back.",C.electric)
-end)
+    toast("LP10 Restored", "The spirits welcome you back.", C.electric)
+end
+
+local function minimizeMain()
+    play("close")
+    Main.Visible = false
+    RestoreOrb.Visible = true
+    if QuickBar then QuickBar.Visible = true end
+    if Settings.blur then
+        tw(Blur, 0.28, {Size=0}, nil, Enum.EasingDirection.In)
+        task.delay(0.32, function() if Blur and not Main.Visible then Blur.Enabled = false end end)
+    end
+    toast("LP10 Minimized", "Tap the pumpkin to restore.", C.electric)
+end
+
+RestoreOrb.MouseButton1Click:Connect(restoreMain)
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- RESPONSIVE LAYOUT
 -- ════════════════════════════════════════════════════════════════════════════
-local function applyLayout()
+applyLayout = function()
     local vp = Cam.ViewportSize
     local narrow = vp.X < 660
-    Side.Visible          = not narrow
-    Content.Position      = narrow and UDim2.fromOffset(0,62) or UDim2.fromOffset(160,62)
-    Content.Size          = narrow and UDim2.new(1,0,1,-62) or UDim2.new(1,-160,1,-62)
-    BrandTitle.Visible    = not narrow
-    BrandSub.Visible      = not narrow
-    LiveStats.Visible     = vp.X > 680
-    ClockLabel.Visible    = vp.X > 680
+    if narrow ~= lastNarrow then
+        lastNarrow = narrow
+        sideOpen = not narrow
+    end
+    Side.Visible = sideOpen
+    if narrow or not sideOpen then
+        Content.Position = UDim2.fromOffset(0,62)
+        Content.Size     = UDim2.new(1,0,1,-62)
+    else
+        Content.Position = UDim2.fromOffset(160,62)
+        Content.Size     = UDim2.new(1,-160,1,-62)
+    end
+    BrandTitle.Visible = not narrow
+    BrandSub.Visible   = not narrow
+    LiveStats.Visible  = vp.X > 680
+    ClockLabel.Visible = vp.X > 680
 end
 
-Cam:GetPropertyChangedSignal("ViewportSize"):Connect(applyLayout)
+table.insert(Conns, Cam:GetPropertyChangedSignal("ViewportSize"):Connect(applyLayout))
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- HEADER BUTTON ACTIONS
 -- ════════════════════════════════════════════════════════════════════════════
-MinBtn.MouseButton1Click:Connect(function()
-    play("close")
-    Main.Visible = false
-    RestoreOrb.Visible = true
-    if Settings.blur then
-        tw(Blur,0.28,{Size=0},nil,Enum.EasingDirection.In)
-        task.delay(0.32, function() if Blur then Blur.Enabled=false end end)
-    end
-    toast("LP10 Minimized","Tap the floating orb to restore.",C.electric)
-end)
+MinBtn.MouseButton1Click:Connect(minimizeMain)
 
 ModeBtn.MouseButton1Click:Connect(function()
     play("tap")
+    sideOpen = not sideOpen
     applyLayout()
-    toast("Full-screen locked","LP10 is edge-to-edge.",C.electric)
 end)
 
 SettingsBtn.MouseButton1Click:Connect(function()
@@ -1803,10 +2197,15 @@ end)
 
 CloseBtn.MouseButton1Click:Connect(function()
     play("close")
+    local duration = os.time() - sessionStart
     pcall(function()
-        if Blur then Blur:Destroy() end
-        if GUI  then GUI:Destroy()  end
+        StarterGui:SetCore("SendNotification", {
+            Title    = "LP10 Session Over",
+            Text     = "Session: "..math.floor(duration/60).."m "..(duration % 60).."s  /  Executions: "..(Persist.execCount or 0).."  /  Thanks, "..LP.Name.."!",
+            Duration = 6,
+        })
     end)
+    shutdownFn()
 end)
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -1821,13 +2220,16 @@ end)
 SearchClear.MouseButton1Click:Connect(function()
     SearchBox.Text = ""
     SearchClear.Visible = false
-    refresh()
 end)
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     SearchClear.Visible = SearchBox.Text ~= ""
-    if CurrentPage == "Scripts" or CurrentPage == "Favorites"
-    or CurrentPage == "Pinned"  or CurrentPage == "Recent"
-    or CurrentPage == "Popular" then
+    if suppressSearch then return end
+    if SearchBox.Text ~= "" and not LIBRARY_PAGES[CurrentPage] then
+        -- searching from any other page jumps to the library
+        CurrentPage = "Scripts"
+        Persist.page = "Scripts"
+        refresh()
+    elseif LIBRARY_PAGES[CurrentPage] then
         wipeBody()
         buildLibrary(CurrentPage)
     end
@@ -1837,7 +2239,8 @@ end)
 -- LIVE PERFORMANCE HUD (FPS / PING / MEM)
 -- ════════════════════════════════════════════════════════════════════════════
 local _fps, _frames, _elapsed, _ping = 60, 0, 0, 0
-RunService.Heartbeat:Connect(function(dt)
+local lowFpsStreak = 0
+connectTracked(RunService.Heartbeat, function(dt)
     _frames  = _frames  + 1
     _elapsed = _elapsed + dt
     local interval = Settings.performance and 1 or 0.5
@@ -1855,15 +2258,16 @@ RunService.Heartbeat:Connect(function(dt)
         LiveStats.TextColor3 = _fps>=55 and C.green or (_fps>=30 and C.yellow or C.red)
         ClockLabel.Text = GAME_NAME.."  /  "..os.date("%H:%M:%S")
         -- Auto performance guard
-        if _fps < 30 then Settings.particles = false end
+        if _fps < 30 then lowFpsStreak = lowFpsStreak + 1 else lowFpsStreak = 0 end
+        if lowFpsStreak >= 4 then Settings.particles = false end
     end
 end)
 
 -- ════════════════════════════════════════════════════════════════════════════
--- ELECTRIC GLOW ANIMATION
+-- FLAME GLOW ANIMATION
 -- ════════════════════════════════════════════════════════════════════════════
 local ePhase, eAcc = 0, 0
-RunService.Heartbeat:Connect(function(dt)
+connectTracked(RunService.Heartbeat, function(dt)
     ePhase = ePhase + dt * (Settings.reduceMotion and 1.5 or 3.8)
     eAcc   = eAcc   + dt
     if eAcc < (Settings.performance and 0.14 or 0.06) then return end
@@ -1880,12 +2284,12 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
--- RGB border animation for featured scripts
-RunService.Heartbeat:Connect(function()
+-- Fire border animation for featured scripts
+connectTracked(RunService.Heartbeat, function()
     for i = #RGBTargets, 1, -1 do
         local stroke = RGBTargets[i]
         if stroke and stroke.Parent then
-            stroke.Color = Color3.fromHSV((ePhase * 0.12 + i * 0.08) % 1, 0.92, 1)
+            stroke.Color = C.electric:Lerp(C.violet, (math.sin(ePhase * 0.6 + i) + 1) / 2)
         else
             table.remove(RGBTargets, i)
         end
@@ -1893,99 +2297,126 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAUNCH SEQUENCE (HALLOWEEN BOOT SCREEN)
+-- LAUNCH SEQUENCE (HALLOWEEN INTRO)
 -- ════════════════════════════════════════════════════════════════════════════
 local LaunchCurtain = frame(GUI, {
     Name             = "LP10LaunchCurtain",
     Size             = UDim2.fromScale(1,1),
     Position         = UDim2.fromScale(0,0),
     BackgroundColor3 = C.bg,
+    Active           = true,
     ZIndex           = 200,
 })
+fillGradient(LaunchCurtain, Color3.fromRGB(56,18,40), C.bg, 90)
 
--- Halloween glow on launch curtain
 local LGlow1 = new("ImageLabel", LaunchCurtain, {
-    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(255,117,24), ImageTransparency=0.76,
-    BackgroundTransparency=1, Size=UDim2.fromOffset(480,480),
-    Position=UDim2.new(0.5,-240,0.5,-240), ZIndex=201,
+    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(255,110,20), ImageTransparency=0.74,
+    BackgroundTransparency=1, Size=UDim2.fromOffset(500,500),
+    Position=UDim2.new(0.5,-250,0.5,-250), ZIndex=201,
 })
 local LGlow2 = new("ImageLabel", LaunchCurtain, {
-    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(109,40,217), ImageTransparency=0.84,
-    BackgroundTransparency=1, Size=UDim2.fromOffset(320,320),
-    Position=UDim2.new(0.85,-160,0.85,-160), ZIndex=201,
+    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(190,105,45), ImageTransparency=0.82,
+    BackgroundTransparency=1, Size=UDim2.fromOffset(340,340),
+    Position=UDim2.new(0.85,-170,0.85,-170), ZIndex=201,
 })
 local LGlow3 = new("ImageLabel", LaunchCurtain, {
-    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(189,119,255), ImageTransparency=0.88,
-    BackgroundTransparency=1, Size=UDim2.fromOffset(260,260),
-    Position=UDim2.new(0.15,-130,0.15,-130), ZIndex=201,
+    Image=GLOW_IMG, ImageColor3=Color3.fromRGB(90,220,50), ImageTransparency=0.88,
+    BackgroundTransparency=1, Size=UDim2.fromOffset(280,280),
+    Position=UDim2.new(0.15,-140,0.15,-140), ZIndex=201,
 })
 
 local LaunchCore = frame(LaunchCurtain, {
-    Size             = UDim2.fromOffset(380,188),
-    Position         = UDim2.new(0.5,-190,0.5,-94),
+    Size             = UDim2.fromOffset(400,250),
+    Position         = UDim2.new(0.5,-200,0.5,-125),
     BackgroundColor3 = C.panel,
     ZIndex           = 202,
 })
 round(LaunchCore, 24)
-outline(LaunchCore, C.line, 1.2)
-fillGradient(LaunchCore, Color3.fromRGB(40,17,20), C.panel, 135)
+outline(LaunchCore, C.electric, 1.4)
+fillGradient(LaunchCore, Color3.fromRGB(64,26,10), C.panel, 135)
 
--- LP logo on launch screen
-local LL = frame(LaunchCore, {
-    Size=UDim2.fromOffset(46,46), Position=UDim2.new(0.5,-23,0,18),
-    BackgroundColor3=C.royal, ZIndex=203,
-})
-round(LL, 14)
-fillGradient(LL, C.electric, C.royal, 135)
-glow(LL, 90, C.electric, 0.70, UDim2.new(0.5,-45,0.5,-45))
-label(LL, {
-    Size=UDim2.fromScale(1,1), Text="LP",
-    TextColor3=Color3.new(1,1,1), Font=Enum.Font.GothamBold, TextSize=17, ZIndex=204,
-})
+-- plain labels (not part of the glow animation so they fade cleanly)
+local function plain(parent, values)
+    local obj = new("TextLabel", parent, values)
+    obj.BackgroundTransparency = 1
+    return obj
+end
 
-label(LaunchCore, {
-    Size=UDim2.new(1,-32,0,26), Position=UDim2.fromOffset(16,72),
-    Text="LP10 HALLOWEEN", TextColor3=C.white,
-    Font=Enum.Font.GothamBold, TextSize=22,
-    TextXAlignment=Enum.TextXAlignment.Center, ZIndex=203,
+local LaunchPumpkin = plain(LaunchCore, {
+    Size=UDim2.fromOffset(90,72), Position=UDim2.new(0.5,-45,0,8),
+    Text="🎃", TextSize=58, ZIndex=203,
 })
-local LaunchStatus = label(LaunchCore, {
-    Size=UDim2.new(1,-32,0,20), Position=UDim2.fromOffset(16,104),
-    Text="CONNECTING TO HALLOWEEN SHELL",
-    TextColor3=C.ice, Font=Enum.Font.GothamSemibold, TextSize=9,
-    TextXAlignment=Enum.TextXAlignment.Center, ZIndex=203,
+local LaunchTitle = plain(LaunchCore, {
+    Size=UDim2.new(1,-32,0,40), Position=UDim2.fromOffset(16,80),
+    Text="LP10 UNIVERSAL", TextColor3=C.electric,
+    Font=Enum.Font.Creepster, TextSize=36, ZIndex=203,
 })
-
+new("UIStroke", LaunchTitle, {Color=Color3.new(0,0,0), Thickness=2})
+plain(LaunchCore, {
+    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,122),
+    Text="🎃  HALLOWEEN UPDATE  🎃", TextColor3=C.violet,
+    Font=Enum.Font.GothamBold, TextSize=11, ZIndex=203,
+})
+local LaunchStatus = plain(LaunchCore, {
+    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,148),
+    Text="SUMMONING SPIRITS…", TextColor3=C.ice,
+    Font=Enum.Font.GothamSemibold, TextSize=9, ZIndex=203,
+})
 local LaunchTrack = frame(LaunchCore, {
-    Size=UDim2.new(1,-48,0,5), Position=UDim2.fromOffset(24,134),
-    BackgroundColor3=Color3.fromRGB(42,18,19), ZIndex=203,
+    Size=UDim2.new(1,-48,0,6), Position=UDim2.fromOffset(24,176),
+    BackgroundColor3=Color3.fromRGB(44,22,22), ZIndex=203,
 })
 round(LaunchTrack, 3)
 local LaunchFill = frame(LaunchTrack, {
-    Size=UDim2.new(0,0,1,0),
-    BackgroundColor3=C.electric, ZIndex=204,
+    Size=UDim2.new(0,0,1,0), BackgroundColor3=C.electric, ZIndex=204,
 })
 round(LaunchFill, 3)
-fillGradient(LaunchFill, C.ice, C.electric, 0)
-
-label(LaunchCore, {
-    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,154),
+fillGradient(LaunchFill, C.electric, C.green, 0)
+plain(LaunchCore, {
+    Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(16,202),
     Text=SCRIPT_COUNT.." SCRIPTS  /  HALLOWEEN EDITION  /  ULTIMATE v8",
-    TextColor3=C.muted, Font=Enum.Font.GothamBold, TextSize=8,
-    TextXAlignment=Enum.TextXAlignment.Center, ZIndex=203,
+    TextColor3=C.muted, Font=Enum.Font.GothamBold, TextSize=8, ZIndex=203,
+})
+local LaunchFlash = frame(LaunchCurtain, {
+    Size=UDim2.fromScale(1,1), BackgroundColor3=C.violet,
+    BackgroundTransparency=1, ZIndex=215,
 })
 
--- Animate launch glow orbs
-task.spawn(function()
-    while LaunchCurtain and LaunchCurtain.Parent and LaunchCurtain.Visible do
-        sine(LGlow1, 2.8, {Position=UDim2.new(0.5,-240,0.45,-240), ImageTransparency=0.80})
-        sine(LGlow2, 3.4, {Position=UDim2.new(0.80,-160,0.80,-160), ImageTransparency=0.88})
-        task.wait(2.6)
-        sine(LGlow1, 2.8, {Position=UDim2.new(0.5,-240,0.5,-240), ImageTransparency=0.76})
-        sine(LGlow2, 3.4, {Position=UDim2.new(0.85,-160,0.85,-160), ImageTransparency=0.84})
-        task.wait(2.6)
+local function fadeAll(root, dur)
+    for _, d in ipairs(root:GetDescendants()) do
+        if d:IsA("TextLabel") then
+            tw(d, dur, {TextTransparency=1, TextStrokeTransparency=1})
+        elseif d:IsA("ImageLabel") then
+            tw(d, dur, {ImageTransparency=1})
+        elseif d:IsA("UIStroke") then
+            tw(d, dur, {Transparency=1})
+        elseif d:IsA("Frame") then
+            tw(d, dur, {BackgroundTransparency=1})
+        end
     end
-end)
+    if root:IsA("Frame") then tw(root, dur, {BackgroundTransparency=1}) end
+end
+
+local function launchFlash()
+    LaunchFlash.BackgroundTransparency = 0.55
+    tw(LaunchFlash, 0.45, {BackgroundTransparency=1})
+end
+
+local function launchBat()
+    if not (LaunchCurtain and LaunchCurtain.Parent) then return end
+    local y = math.random(8, 88) / 100
+    local bat = new("TextLabel", LaunchCurtain, {
+        Size=UDim2.fromOffset(34,34), AnchorPoint=Vector2.new(0.5,0.5),
+        Position=UDim2.new(-0.05,0,y,0), BackgroundTransparency=1,
+        Text="🦇", TextSize=math.random(20,34), ZIndex=210,
+    })
+    local dur = math.random(14,24) / 10
+    TweenService:Create(bat, TweenInfo.new(dur, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+        Position = UDim2.new(1.05,0,math.clamp(y + math.random(-15,15)/100, 0.05, 0.95),0),
+        Rotation = math.random(-25,25),
+    }):Play()
+    task.delay(dur + 0.1, function() pcall(function() bat:Destroy() end) end)
+end
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- BOOT & OPEN
@@ -1999,61 +2430,354 @@ local function openMain()
     play("open")
     spring(Main, 0.50, {Size=UDim2.fromScale(1,1), Position=UDim2.fromScale(0,0)})
 
-    LaunchCurtain.Visible = true
-    LaunchCurtain.BackgroundTransparency = 0
-    LaunchCore.BackgroundTransparency   = 0
-    LaunchFill.Size = UDim2.new(0,0,1,0)
-    LaunchStatus.Text = "CONNECTING TO HALLOWEEN SHELL"
+    -- ambient intro animation
+    task.spawn(function()
+        while LaunchCurtain and LaunchCurtain.Parent do
+            sine(LGlow1, 1.4, {ImageTransparency=0.82})
+            tw(LaunchPumpkin, 0.5, {Rotation=9}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(0.5)
+            tw(LaunchPumpkin, 0.5, {Rotation=-9}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            sine(LGlow1, 1.4, {ImageTransparency=0.72})
+            task.wait(0.5)
+        end
+    end)
+    task.spawn(function()
+        for _ = 1, 7 do
+            launchBat()
+            task.wait(0.28)
+        end
+    end)
 
     task.spawn(function()
-        tw(LaunchFill, 0.72, {Size=UDim2.fromScale(0.72,1)}, Enum.EasingStyle.Quart)
-        task.wait(0.70)
-        LaunchStatus.Text = "LOADING "..SCRIPT_COUNT.." SCRIPTS"
-        tw(LaunchFill, 0.50, {Size=UDim2.fromScale(1,1)}, Enum.EasingStyle.Quart)
-        task.wait(0.55)
-        LaunchStatus.Text = "HALLOWEEN NIGHT  /  v8"
-        task.wait(0.34)
-        tw(LaunchCore,    0.24, {BackgroundTransparency=1})
-        tw(LGlow1,        0.28, {ImageTransparency=1})
-        tw(LGlow2,        0.28, {ImageTransparency=1})
-        tw(LGlow3,        0.28, {ImageTransparency=1})
-        tw(LaunchCurtain, 0.36, {BackgroundTransparency=1})
-        task.wait(0.40)
+        LaunchStatus.Text = "SUMMONING SPIRITS…"
+        tw(LaunchFill, 0.9, {Size=UDim2.fromScale(0.40,1)}, Enum.EasingStyle.Quart)
+        task.wait(0.8)
+        LaunchStatus.Text = "CARVING PUMPKINS…"
+        launchFlash()
+        tw(LaunchFill, 0.7, {Size=UDim2.fromScale(0.72,1)}, Enum.EasingStyle.Quart)
+        task.wait(0.7)
+        LaunchStatus.Text = "LOADING "..SCRIPT_COUNT.." SCRIPTS…"
+        tw(LaunchFill, 0.6, {Size=UDim2.fromScale(1,1)}, Enum.EasingStyle.Quart)
+        task.wait(0.65)
+        LaunchStatus.Text = "HAPPY HALLOWEEN 🎃"
+        launchFlash()
+        task.wait(0.5)
+        fadeAll(LaunchCore, 0.3)
+        tw(LGlow1, 0.3, {ImageTransparency=1})
+        tw(LGlow2, 0.3, {ImageTransparency=1})
+        tw(LGlow3, 0.3, {ImageTransparency=1})
+        tw(LaunchCurtain, 0.4, {BackgroundTransparency=1})
+        task.wait(0.45)
         if LaunchCurtain and LaunchCurtain.Parent then
-            LaunchCurtain.Visible = false
+            LaunchCurtain:Destroy()
         end
     end)
 end
 
--- BOOT
-applyLayout()
-CurrentPage  = Persist.page or "Home"
-refresh()
-openMain()
-
-task.delay(0.70, function()
-    toast("LP10 Halloween Universal", SCRIPT_COUNT.." catalog entries ready. Halloween night is ready.", C.electric)
-end)
-task.delay(2.40, function()
-    toast("★ New Game Added", "+1 Assassin Leveling is now at the top of Scripts.", C.orange)
-end)
-task.delay(4.60, function()
-    toast("🎃 Halloween UI", "Catalog preview only — execution is disabled.", C.orange)
-end)
-
 -- ════════════════════════════════════════════════════════════════════════════
 -- EXTENDED SCRIPT METADATA  (descriptions, tips, tags — power-user layer)
 -- ════════════════════════════════════════════════════════════════════════════
-local ScriptMeta = {}
+ScriptMeta = {
+    ["Steal From the rich"] = {
+        tags = {"steal","auto-place","auto-open","equip-best","rarity"},
+        tips = "Join the game first, then cast. The remote payload is obfuscated; verify it before running.",
+        risk = "UNVERIFIED", tested = "Not tested in this environment", added = "v8",
+    },
+    ["RUNAWAYS"] = {
+        tags = {"runaways","automation"},
+        tips = "Join RUNAWAYS before casting. The remote payload is obfuscated.",
+        risk = "UNVERIFIED", tested = "Delta / Mobile executor", added = "v8",
+    },
+    ["Heroes RNG"] = {
+        tags = {"heroes","rng","automation"},
+        tips = "Join Heroes RNG before casting. Delta compatible.",
+        risk = "MEDIUM", tested = "Delta / Mobile executor", added = "v8",
+    },
+    ["+1 Assassin Leveling"] = {
+        tags    = {"assassin","leveling","auto-stage","strength-farm","rebirth","new"},
+        tips    = "Join +1 Assassin Leveling before executing; this entry loads its remote payload.",
+        risk    = "UNVERIFIED",
+        tested  = "Not tested in this environment",
+        added   = "latest update",
+    },
+    ["Dead rails New"] = {
+        tags    = {"dead","rails","survival","new","auto","delta","mobile"},
+        tips    = "Run after joining Dead Rails so the script can detect the loaded survival systems.",
+        risk    = "MEDIUM",
+        tested  = "Delta 1.2, Arceus X Mobile, Codex",
+        added   = "v7",
+    },
+    ["Greedy Growers"] = {
+        tags    = {"farming","auto","crops","speed","delta","mobile","new"},
+        tips    = "Keep the game in focus for best results. Works in single and multiplayer sessions.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex, Arceus X Mobile",
+        added   = "v7",
+    },
+    ["Drive Car and Slide"] = {
+        tags    = {"coins","wins","car","slide","delta","mobile","new"},
+        tips    = "Execute at the start of a match for maximum coin accumulation.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Mobile Arceus X",
+        added   = "v7",
+    },
+    ["Speed Vs Giant"] = {
+        tags    = {"cash","speed","upgrade","giant","delta","new"},
+        tips    = "Toggle Speed Upgrade first, then open Cash Box for best synergy.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex",
+        added   = "v7",
+    },
+    ["Scream for brainrot"] = {
+        tags    = {"spins","rewards","brainrot","delta","mobile"},
+        tips    = "Run once per session. Re-running mid-session resets your spin counter.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus, Xeno",
+        added   = "v5",
+    },
+    ["Fake Lag / Disconnecting"] = {
+        tags    = {"lag","troll","disconnect","utility","delta"},
+        tips    = "Use Fake Lag in lag-based servers for max effect. Fake Disconnect works in any game.",
+        risk    = "MEDIUM",
+        tested  = "Delta 1.2, Codex",
+        added   = "v4",
+    },
+    ["Cheese Escape [Horror]"] = {
+        tags    = {"horror","cheese","escape","delta","mobile"},
+        tips    = "Execute before entering a round for auto-bypass to trigger correctly.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile",
+        added   = "v4",
+    },
+    ["Build a Store"] = {
+        tags    = {"store","build","auto","tycoon","delta"},
+        tips    = "Leave the script running in background — it auto-stocks and sells continuously.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus",
+        added   = "v4",
+    },
+    ["Kick a Lucky Block"] = {
+        tags    = {"lucky","block","kick","rewards","delta"},
+        tips    = "Position your character near the block spawn area before executing.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex, Xeno",
+        added   = "v4",
+    },
+    ["Combat Arena Op Silent Aim"] = {
+        tags    = {"silent","aim","combat","arena","delta","pc"},
+        tips    = "Works best with default camera FOV. Reduce camera distance for tighter lock-on.",
+        risk    = "HIGH",
+        tested  = "Delta 1.2, Codex",
+        added   = "v4",
+    },
+    ["1 Plank = $1/s"] = {
+        tags    = {"plank","money","passive","auto","delta"},
+        tips    = "Stack multiple planks to multiply passive income. Works offline in-session.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus, Arceus X",
+        added   = "v4",
+    },
+    ["Mutate The Brainrot"] = {
+        tags    = {"mutate","brainrot","auto","power","delta"},
+        tips    = "Higher mutation tier = better stats. Run repeatedly to reach max tier faster.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex, Mobile",
+        added   = "v4",
+    },
+    ["Launch Yourself For Brainrots!"] = {
+        tags    = {"launch","movement","brainrot","delta","mobile"},
+        tips    = "Set a target destination in the game first, then execute for precise landing.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile",
+        added   = "v4",
+    },
+    ["Coordinates And Save Teleport"] = {
+        tags    = {"teleport","coordinates","save","location","delta","pc"},
+        tips    = "Save up to 5 locations. Use keyboard shortcuts shown in the script UI to teleport instantly.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex, Xeno",
+        added   = "v4",
+    },
+    ["Build A Farm Factory"] = {
+        tags    = {"farm","factory","build","auto","tycoon","delta"},
+        tips    = "Execute at round start. The script handles all placement and production automatically.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus",
+        added   = "v4",
+    },
+    ["Free Gamepasses"] = {
+        tags    = {"gamepasses","free","unlock","delta","mobile"},
+        tips    = "Only works on games that use client-side gamepass checks. Server-side games are not affected.",
+        risk    = "MEDIUM",
+        tested  = "Delta 1.2, Arceus X Mobile, Codex",
+        added   = "v4",
+    },
+    ["Hide & Seek"] = {
+        tags    = {"hide","seek","auto","delta","mobile"},
+        tips    = "As seeker: script reveals hider positions. As hider: auto-find best hiding spots.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus, Xeno",
+        added   = "v4",
+    },
+    ["Impossible Squid Game Glass Bridge 2"] = {
+        tags    = {"squid","glass","bridge","auto","delta","mobile"},
+        tips    = "Wait for the round to start fully before executing — the safe-tile detector needs loaded tiles.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex, Arceus X",
+        added   = "v4",
+    },
+    ["Rivals Silent Aim"] = {
+        tags    = {"silent","aim","rivals","combat","delta","pc"},
+        tips    = "Best used with hipfire. ADS can reduce lock-on range slightly on some devices.",
+        risk    = "HIGH",
+        tested  = "Delta 1.2, Codex",
+        added   = "v4",
+    },
+    ["Squabble Game RP"] = {
+        tags    = {"squabble","rp","roleplay","auto","delta","mobile"},
+        tips    = "Execute after joining a server — the script syncs with the active roleplay session.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile",
+        added   = "v4",
+    },
+    ["Parkour for Brainrots"] = {
+        tags    = {"parkour","movement","brainrot","auto","delta","mobile"},
+        tips    = "Works on all standard parkour maps. Custom maps may need a brief calibration delay.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus, Codex",
+        added   = "v4",
+    },
+    ["Ride Storm"] = {
+        tags    = {"storm","ride","auto","delta","mobile"},
+        tips    = "Execute at the start of the storm phase for best timing.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile",
+        added   = "v4",
+    },
+    ["Skateboard for Brainrots"] = {
+        tags    = {"skateboard","movement","brainrot","tricks","delta","mobile"},
+        tips    = "Unlock all tricks first via the in-game shop before running for max score.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex, Xeno",
+        added   = "v4",
+    },
+    ["Emotes"] = {
+        tags    = {"emotes","visual","all","unlock","delta","mobile"},
+        tips    = "Some emotes are game-specific. The script auto-detects available emotes for your current game.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus, Arceus X Mobile",
+        added   = "v4",
+    },
+    ["Noob Army Tycoon"] = {
+        tags    = {"noob","army","tycoon","auto","build","delta"},
+        tips    = "Execute early in the match. Auto-upgrade prioritises troops over buildings for faster expansion.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Codex",
+        added   = "v4",
+    },
+    ["Ride the Coaster"] = {
+        tags    = {"coaster","ride","auto","fun","delta","mobile"},
+        tips    = "Works best on the default coaster map. Custom tracks may alter timing.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile, Fluxus",
+        added   = "v4",
+    },
+    ["Dead Rails"] = {
+        tags    = {"dead","rails","survival","auto","delta","mobile"},
+        tips    = "Keep moving — the script handles enemy avoidance and resource collection simultaneously.",
+        risk    = "MEDIUM",
+        tested  = "Delta 1.2, Codex",
+        added   = "v4",
+    },
+    ["Don't Get Caught for Hackers"] = {
+        tags    = {"stealth","anti-cheat","bypass","utility","delta","pc"},
+        tips    = "Execute before any other script in the same session for best stealth coverage.",
+        risk    = "HIGH",
+        tested  = "Delta 1.2, Codex, Xeno",
+        added   = "v4",
+    },
+    ["Brainrot Ascension"] = {
+        tags    = {"ascension","brainrot","auto","stages","delta","mobile"},
+        tips    = "Let the auto-stage runner complete at least 3 stages before alt-tabbing.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile",
+        added   = "v4",
+    },
+    ["Paper Plane Training"] = {
+        tags    = {"paper","plane","training","auto","delta","mobile"},
+        tips    = "Aim for a 45-degree launch angle — the script optimises throw power automatically.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Fluxus, Codex",
+        added   = "v4",
+    },
+    ["Cursed Blade [ALPHA]"] = {
+        tags    = {"combat","alpha","cursed","blade","damage","delta","pc"},
+        tips    = "Alpha build — may have edge cases. Report issues to @LPOLVO on Instagram.",
+        risk    = "HIGH",
+        tested  = "Delta 1.2, Codex (alpha)",
+        added   = "v5-alpha",
+    },
+    ["OneShot"] = {
+        tags    = {"oneshot","combat","kill","damage","delta","pc"},
+        tips    = "Activate right before engaging. Works best in 1v1 modes.",
+        risk    = "HIGH",
+        tested  = "Delta 1.2, Xeno, Codex",
+        added   = "v5",
+    },
+    ["Build a Boat for Treasure"] = {
+        tags    = {"boat","treasure","build","auto","delta","mobile"},
+        tips    = "Execute at round start. The auto-builder selects the strongest hull design automatically.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile, Fluxus",
+        added   = "v4",
+    },
+    ["+1 Double Jump Bike Escape"] = {
+        tags    = {"bike","doublejump","autorebirth","autocollect","farm","universal"},
+        tips    = "Enable Auto Rebirth first, then toggle Auto Train and Collect Coin. Last Wins shows your session record.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile, Codex",
+        added   = "v7",
+    },
+    ["+1 Muscles for Prison Escape"] = {
+        tags    = {"muscles","strength","prison","escape","auto","delta","mobile","new"},
+        tips    = "Run after entering the prison experience so the script can detect the available training and escape actions.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile, Codex",
+        added   = "v7",
+    },
+    ["Iron Soul: Dungeon"] = {
+        tags    = {"iron","soul","dungeon","combat","auto","delta","mobile","new"},
+        tips    = "Run after the dungeon experience has loaded so the script can detect its available systems.",
+        risk    = "LOW",
+        tested  = "Delta 1.2, Arceus X Mobile, Codex",
+        added   = "v7",
+    },
+    ["New free Gamepasses"] = {
+        tags    = {"gamepasses","free","unlock","new","delta","mobile"},
+        tips    = "Run after entering the experience so supported gamepass checks can be detected.",
+        risk    = "MEDIUM",
+        tested  = "Delta 1.2, Arceus X Mobile, Codex",
+        added   = "v7",
+    },
+    ["+1 Wings For Eggs"] = {
+        tags    = {"wings","eggs","steal","hatch","rebirth","speed","teleport","new","mobile"},
+        tips    = "Join +1 Wings For Eggs first, then execute. The purple in-game panel starts closed; tap LP to open it.",
+        risk    = "MEDIUM",
+        tested  = "Delta / Mobile executor",
+        added   = "v8",
+    },
+}
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- TOOLTIP OVERLAY  (shows on long-press / right-click on script cards)
 -- ════════════════════════════════════════════════════════════════════════════
-local function showTooltip(data, anchorX, anchorY)
+showTooltip = function(data, anchorX, anchorY)
     local meta  = ScriptMeta[data.N] or {}
-    local tipText = "Catalog preview only. No executable payload is included."
-    local risk  = meta.risk or "N/A"
-    local riskCol = C.muted
+    local tipText = meta.tips or "Delta compatible. Works on mobile and PC."
+    local risk  = meta.risk or "LOW"
+    local riskCol = risk == "HIGH" and C.red
+        or (risk == "MEDIUM" and C.yellow
+        or (risk == "LOW" and C.green or C.muted))
 
     local tip = frame(GUI, {
         Size             = UDim2.fromOffset(268, 110),
@@ -2063,7 +2787,7 @@ local function showTooltip(data, anchorX, anchorY)
     })
     round(tip, 14)
     outline(tip, C.line, 1)
-    fillGradient(tip, Color3.fromRGB(25,13,15), C.panel, 135)
+    fillGradient(tip, Color3.fromRGB(45,21,54), C.panel, 135)
 
     label(tip, {
         Size=UDim2.new(1,-32,0,18), Position=UDim2.fromOffset(12,8),
@@ -2078,7 +2802,7 @@ local function showTooltip(data, anchorX, anchorY)
     })
     local riskBadge = frame(tip, {
         Size=UDim2.fromOffset(58,18), Position=UDim2.fromOffset(12,78),
-        BackgroundColor3=Color3.fromRGB(14,8,11), ZIndex=151,
+        BackgroundColor3=Color3.fromRGB(22,10,26), ZIndex=151,
     })
     round(riskBadge, 7)
     outline(riskBadge, riskCol, 1)
@@ -2088,7 +2812,7 @@ local function showTooltip(data, anchorX, anchorY)
     })
     local testedLbl = label(tip, {
         Size=UDim2.new(1,-80,0,18), Position=UDim2.fromOffset(80,78),
-        Text="UI-only preview · no payload included",
+        Text="TESTED: "..(meta.tested or "Delta 1.2"),
         TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=8,
         TextXAlignment=Enum.TextXAlignment.Left, ZIndex=151,
     })
@@ -2107,57 +2831,46 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 -- MINI-GAME OVERLAY WIDGET  (floating in-game quick-access bar)
 -- ════════════════════════════════════════════════════════════════════════════
-local QuickBar = frame(GUI, {
+QuickBar = frame(GUI, {
     Size             = UDim2.fromOffset(58, 200),
     Position         = UDim2.new(1, -74, 0.5, -100),
-    BackgroundColor3 = Color3.fromRGB(17,9,11),
+    BackgroundColor3 = Color3.fromRGB(27,12,32),
     ZIndex           = 70,
     Visible          = false,
 })
 round(QuickBar, 16)
 outline(QuickBar, C.line, 1)
-fillGradient(QuickBar, Color3.fromRGB(20,10,12), Color3.fromRGB(14,8,11), 90)
+fillGradient(QuickBar, Color3.fromRGB(42,20,50), Color3.fromRGB(22,10,26), 90)
 glow(QuickBar, 90, C.electric, 0.82, UDim2.new(0.5,-45,0.5,-45))
 
 local function qBarBtn(icon, y, col, fn)
     local b = button(QuickBar, {
         Size=UDim2.fromOffset(40,40), Position=UDim2.fromOffset(9, y),
-        BackgroundColor3=Color3.fromRGB(20,10,12),
+        BackgroundColor3=Color3.fromRGB(42,20,50),
         Text=icon, TextColor3=col or C.ice,
         Font=Enum.Font.GothamBold, TextSize=15, ZIndex=71,
     })
     round(b, 12)
-    wire(b, Color3.fromRGB(20,10,12), C.cardHot)
+    wire(b, Color3.fromRGB(42,20,50), C.cardHot)
     b.MouseButton1Click:Connect(function() play("tap"); if fn then fn() end end)
     return b
 end
 
-qBarBtn("LP", 8,  C.white, function()
-    RestoreOrb.Visible = false
-    Main.Visible = true
-    Main.Size = UDim2.fromScale(0,0)
-    Main.Position = UDim2.fromScale(0.5,0.5)
-    if Settings.blur then Blur.Enabled=true; tw(Blur,0.36,{Size=12}) end
-    spring(Main,0.44,{Size=UDim2.fromScale(1,1),Position=UDim2.fromScale(0,0)})
-end)
+qBarBtn("🎃", 8,  C.white, function() restoreMain() end)
 qBarBtn("★", 56, C.yellow, function()
     _G.LP10ChangePage("Favorites")
-    RestoreOrb.Visible=false
-    Main.Visible=true
-    spring(Main,0.44,{Size=UDim2.fromScale(1,1),Position=UDim2.fromScale(0,0)})
+    restoreMain()
 end)
 qBarBtn("↺", 104, C.green, function()
     if Persist.recent[1] then
         for _, d in ipairs(Scripts) do
             if d.N == Persist.recent[1] then execScript(d); break end
         end
-    else toast("Nothing recent","This UI preview has no script execution.",C.yellow) end
+    else toast("Nothing recent","Execute a script first.",C.yellow) end
 end)
 qBarBtn("◆", 152, C.ice, function()
     _G.LP10ChangePage("Pinned")
-    RestoreOrb.Visible=false
-    Main.Visible=true
-    spring(Main,0.44,{Size=UDim2.fromScale(1,1),Position=UDim2.fromScale(0,0)})
+    restoreMain()
 end)
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -2173,7 +2886,7 @@ do
             startPos  = QuickBar.Position
         end
     end)
-    UIS.InputChanged:Connect(function(inp)
+    connectTracked(UIS.InputChanged, function(inp)
         if not dragging then return end
         if inp.UserInputType == Enum.UserInputType.MouseMovement
         or inp.UserInputType == Enum.UserInputType.Touch then
@@ -2183,7 +2896,7 @@ do
                 startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-    UIS.InputEnded:Connect(function(inp)
+    connectTracked(UIS.InputEnded, function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
         or inp.UserInputType == Enum.UserInputType.Touch then
             dragging = false
@@ -2203,7 +2916,7 @@ local CmdPalette = frame(GUI, {
 })
 round(CmdPalette, 16)
 outline(CmdPalette, C.electric, 1.2)
-fillGradient(CmdPalette, Color3.fromRGB(28,14,17), C.panel, 135)
+fillGradient(CmdPalette, Color3.fromRGB(47,22,56), C.panel, 135)
 glow(CmdPalette, 160, C.electric, 0.84, UDim2.new(0.5,-80,0.5,-80))
 
 local CmdInput = input(CmdPalette, {
@@ -2217,7 +2930,7 @@ local CmdInput = input(CmdPalette, {
 })
 label(CmdPalette, {
     Size=UDim2.fromOffset(28,46), Position=UDim2.fromOffset(8,6),
-    Text="🎃", TextColor3=C.electric,
+    Text="▶", TextColor3=C.electric,
     Font=Enum.Font.GothamBold, TextSize=14, ZIndex=161,
 })
 
@@ -2255,7 +2968,7 @@ CmdInput.FocusLost:Connect(function(enter)
     end
 end)
 
-UIS.InputBegan:Connect(function(inp, gp)
+connectTracked(UIS.InputBegan, function(inp, gp)
     if gp then return end
     if inp.KeyCode == Enum.KeyCode.Semicolon or
        (inp.KeyCode == Enum.KeyCode.K and UIS:IsKeyDown(Enum.KeyCode.LeftControl)) then
@@ -2270,17 +2983,17 @@ end)
 -- ACHIEVEMENT / MILESTONE SYSTEM
 -- ════════════════════════════════════════════════════════════════════════════
 local Milestones = {
-    {threshold=1,   title="First Preview",     msg="You opened your first catalogue preview.",    col=C.electric},
-    {threshold=5,   title="Preview Explorer",msg="Browse the Halloween catalogue entries.",         col=C.electric},
-    {threshold=10,  title="Preview Mode",     msg="Source code and game actions are disabled.",          col=C.violet},
-    {threshold=25,  title="Halloween Fan",   msg="Explore the catalogue preview.",            col=C.yellow},
-    {threshold=50,  title="UI Explorer",     msg="Favorites and pins stay in this session.",         col=C.green},
-    {threshold=100, title="LP10 Legend",    msg="You explored the Halloween UI preview.", col=C.pink},
+    {threshold=1,   title="First Exec",     msg="You executed your first script. The journey begins.",    col=C.electric},
+    {threshold=5,   title="Script Explorer",msg="5 executions. You're getting the hang of LP10.",         col=C.electric},
+    {threshold=10,  title="Power User",     msg="10 executions. You're officially a power user.",          col=C.violet},
+    {threshold=25,  title="Script Master",  msg="25 executions. LP10 Ultimate has chosen you.",            col=C.yellow},
+    {threshold=50,  title="Elite Operator", msg="50 executions. You are the definition of Elite.",         col=C.green},
+    {threshold=100, title="LP10 Legend",    msg="100 executions. Legend status — @LPOLVO would be proud.", col=C.pink},
     {threshold=3,   title="Curator",        msg="3 favorites saved. Your collection is taking shape.",     col=C.yellow, fav=true},
     {threshold=5,   title="Collector",      msg="5 pinned scripts. Pin master achieved.",                  col=C.ice,    pin=true},
 }
 
-local function checkMilestones()
+checkMilestones = function()
     for _, m in ipairs(Milestones) do
         local count = m.fav and #Persist.favorites
                    or m.pin and #Persist.pinned
@@ -2295,13 +3008,6 @@ local function checkMilestones()
     end
 end
 
--- Hook milestone check into execScript
-local _origExec = execScript
-execScript = function(data)
-    _origExec(data)
-    task.delay(0.8, checkMilestones)
-end
-
 -- ════════════════════════════════════════════════════════════════════════════
 -- KEYBOARD SHORTCUTS OVERLAY  (press F1 to toggle)
 -- ════════════════════════════════════════════════════════════════════════════
@@ -2314,7 +3020,7 @@ local ShortcutsPanel = frame(GUI, {
 })
 round(ShortcutsPanel, 18)
 outline(ShortcutsPanel, C.line, 1.2)
-fillGradient(ShortcutsPanel, Color3.fromRGB(20,10,12), C.panel, 135)
+fillGradient(ShortcutsPanel, Color3.fromRGB(42,20,50), C.panel, 135)
 
 label(ShortcutsPanel, {
     Size=UDim2.new(1,-32,0,24), Position=UDim2.fromOffset(16,14),
@@ -2335,9 +3041,9 @@ local shortcuts = {
     {"Scroll",          "Navigate script list"},
     {"Tap script",      "Open detail / inspect panel"},
     {"Long-press",      "Show tooltip with risk and tips"},
-    {"Tap ─",           "Minimise LP10 to floating orb"},
-    {"Tap ✕",           "Close LP10 completely"},
-    {"Tap F",           "Restore full-screen lock"},
+    {"Tap ─",           "Minimise LP10 to the pumpkin"},
+    {"Tap ☠",           "Close LP10 completely"},
+    {"Tap ☰",           "Show / hide the sidebar"},
 }
 
 for i, s in ipairs(shortcuts) do
@@ -2360,7 +3066,7 @@ end
 
 local closeShortcuts = button(ShortcutsPanel, {
     Size=UDim2.fromOffset(28,28), Position=UDim2.new(1,-40,0,8),
-    BackgroundColor3=Color3.fromRGB(84,28,20), Text="✕",
+    BackgroundColor3=Color3.fromRGB(48,18,28), Text="✕",
     TextColor3=C.red, Font=Enum.Font.GothamBold, TextSize=11, ZIndex=166,
 })
 round(closeShortcuts, 8)
@@ -2370,7 +3076,7 @@ closeShortcuts.MouseButton1Click:Connect(function()
     task.delay(0.20, function() if ShortcutsPanel then ShortcutsPanel.Visible=false; ShortcutsPanel.BackgroundTransparency=0 end end)
 end)
 
-UIS.InputBegan:Connect(function(inp, gp)
+connectTracked(UIS.InputBegan, function(inp, gp)
     if gp then return end
     if inp.KeyCode == Enum.KeyCode.F1 then
         ShortcutsPanel.Visible = not ShortcutsPanel.Visible
@@ -2382,41 +3088,35 @@ UIS.InputBegan:Connect(function(inp, gp)
 end)
 
 -- ════════════════════════════════════════════════════════════════════════════
--- PARTICLE SYSTEM  (ambient floating particles in background)
+-- FLOATING SPIRITS  (bats, ghosts, pumpkins drifting up behind the UI)
 -- ════════════════════════════════════════════════════════════════════════════
 local PARTICLE_COUNT = 0
-local MAX_PARTICLES  = 28
+local MAX_PARTICLES  = 22
+local SPIRITS = {"🦇","👻","🎃","🕸️","🕷️","🍬","💀"}
 
 local function spawnParticle()
     if PARTICLE_COUNT >= MAX_PARTICLES then return end
     if not Settings.particles or Settings.performance then return end
     PARTICLE_COUNT = PARTICLE_COUNT + 1
 
-    local vp   = Cam.ViewportSize
-    local size = math.random(3, 7)
-    local x    = math.random(0, math.floor(vp.X))
-    local y    = math.floor(vp.Y) + size + 4
-
-    local colors = {C.electric, C.royal, C.ice, C.violet, C.cyan}
-    local col    = colors[math.random(1,#colors)]
-
-    local pt = frame(Main, {
-        Size             = UDim2.fromOffset(size, size),
-        Position         = UDim2.fromOffset(x, y),
-        BackgroundColor3 = col,
-        BackgroundTransparency = 0.45,
-        ZIndex           = 4,
-    })
-    round(pt, math.ceil(size/2))
-
-    local duration = math.random(60, 130) / 10  -- 6–13 seconds
-    local endX     = x + math.random(-80, 80)
-
-    tw(pt, duration, {
-        Position             = UDim2.fromOffset(endX, -size-4),
+    local size = math.random(14, 26)
+    local x    = math.random(5, 95) / 100
+    local pt = new("TextLabel", AuroraFX, {
+        Size                   = UDim2.fromOffset(size + 6, size + 6),
+        Position               = UDim2.new(x, 0, 1, size),
         BackgroundTransparency = 1,
+        Text                   = SPIRITS[math.random(1, #SPIRITS)],
+        TextSize               = size,
+        TextTransparency       = 0.35,
+        Rotation               = math.random(-20, 20),
+        ZIndex                 = 3,
+    })
+    local duration = math.random(70, 140) / 10
+    tw(pt, duration, {
+        Position         = UDim2.new(math.clamp(x + math.random(-12, 12) / 100, 0, 1), 0, -0.1, 0),
+        TextTransparency = 1,
+        Rotation         = math.random(-50, 50),
     }, Enum.EasingStyle.Linear)
-
     task.delay(duration, function()
         pcall(function() pt:Destroy() end)
         PARTICLE_COUNT = PARTICLE_COUNT - 1
@@ -2427,9 +3127,41 @@ task.spawn(function()
     while GUI and GUI.Parent do
         if Settings.particles and not Settings.performance then
             spawnParticle()
-            task.wait(math.random(12,30)/10)
+            task.wait(math.random(8, 20) / 10)
         else
             task.wait(1.2)
+        end
+    end
+end)
+
+-- Cobwebs in two corners
+label(Main, {
+    Size=UDim2.fromOffset(60,60), Position=UDim2.fromOffset(-14,-14),
+    Text="🕸️", TextSize=46, TextTransparency=0.3, ZIndex=31,
+})
+label(Main, {
+    Size=UDim2.fromOffset(60,60), Position=UDim2.new(1,-46,1,-46),
+    Text="🕸️", TextSize=46, TextTransparency=0.3, Rotation=180, ZIndex=31,
+})
+
+-- Lightning flashes
+local StormFlash = frame(Main, {
+    Size=UDim2.fromScale(1,1), BackgroundColor3=C.violet,
+    BackgroundTransparency=1, ZIndex=30,
+})
+local function strike()
+    StormFlash.BackgroundTransparency = 0.82
+    tw(StormFlash, 0.12, {BackgroundTransparency=1})
+    task.delay(0.18, function()
+        StormFlash.BackgroundTransparency = 0.88
+        tw(StormFlash, 0.5, {BackgroundTransparency=1})
+    end)
+end
+task.spawn(function()
+    while GUI and GUI.Parent do
+        task.wait(math.random(90, 200) / 10)
+        if Settings.lightning and not Settings.performance and not Settings.reduceMotion and Main.Visible then
+            strike()
         end
     end
 end)
@@ -2437,7 +3169,7 @@ end)
 -- ════════════════════════════════════════════════════════════════════════════
 -- AMBIENT SOUND LOOP  (very subtle background tone, toggleable)
 -- ════════════════════════════════════════════════════════════════════════════
-local ambientSound = nil
+ambientSound = nil
 pcall(function()
     ambientSound = new("Sound", SoundService, {
         SoundId      = "rbxassetid://1843363841",
@@ -2448,42 +3180,27 @@ pcall(function()
     if Settings.sounds then ambientSound:Play() end
 end)
 
--- Hook sounds toggle to also control ambient
-local _origReady = refresh
-refresh = function()
-    _origReady()
+-- ════════════════════════════════════════════════════════════════════════════
+-- AUTO-UPDATE CHECKER  (checks GitHub for newer version tag)
+-- ════════════════════════════════════════════════════════════════════════════
+task.spawn(function()
+    task.wait(8)
     pcall(function()
-        if ambientSound then
-            if Settings.sounds then ambientSound:Play()
-            else ambientSound:Stop() end
+        local req = (syn and syn.request) or request or http_request
+        if not req then return end
+        local resp = req({
+            Url    = "https://raw.githubusercontent.com/LPOLVO/LP10/refs/heads/main/version.txt",
+            Method = "GET",
+        })
+        if resp and resp.StatusCode == 200 and resp.Body then
+            local remote = resp.Body:match("v%d+") or ""
+            local remoteNumber = tonumber(remote:match("%d+"))
+            if remoteNumber and remoteNumber > 8 then
+                toast("Update Available", "LP10 "..remote.." is ready. Re-download from the hub.", C.yellow)
+            end
         end
     end)
-end
-
--- ════════════════════════════════════════════════════════════════════════════
--- OFFLINE UI-ONLY PREVIEW (external updater omitted)
--- ════════════════════════════════════════════════════════════════════════════
-
--- ════════════════════════════════════════════════════════════════════════════
--- LONG-PRESS TOOLTIP WIRING (on desktop: right-click script cards triggers tooltip)
--- ════════════════════════════════════════════════════════════════════════════
--- Wire into openDetail — add tooltip trigger on right mouse button
-local function wireTooltipOnCard(item, data)
-    item.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton2 then
-            local mouse = inp.Position
-            showTooltip(data, mouse.X, mouse.Y)
-        end
-    end)
-end
-
--- Extend scriptCard to include tooltip wiring
-local _origCard = scriptCard
-scriptCard = function(parent, data, order)
-    local item = _origCard(parent, data, order)
-    if item then wireTooltipOnCard(item, data) end
-    return item
-end
+end)
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- FOOTER WATERMARK  (rendered at bottom of detail panel)
@@ -2494,7 +3211,7 @@ frame(Detail, {
 })
 label(Detail, {
     Size=UDim2.new(1,-32,0,28), Position=UDim2.new(0,16,1,-40),
-    Text="LP10 HALLOWEEN UI  •  @LPOLVO  •  instagram.com/4me.h4mz4_",
+    Text="LP10 HALLOWEEN v8  •  @LPOLVO  •  instagram.com/4me.h4mz4_",
     TextColor3=C.dim, Font=Enum.Font.Gotham, TextSize=8,
     TextXAlignment=Enum.TextXAlignment.Center, ZIndex=61,
 })
@@ -2503,86 +3220,16 @@ label(Detail, {
 -- SIDEBAR FOOTER WATERMARK
 -- ════════════════════════════════════════════════════════════════════════════
 label(Side, {
-    Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,1,-18),
-    Text="© 2025 @LPOLVO  •  instagram.com/4me.h4mz4_",
+    Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,1,-20),
+    Text="© @LPOLVO  •  instagram.com/4me.h4mz4_",
     TextColor3=C.dim, Font=Enum.Font.Gotham, TextSize=7,
     ZIndex=15,
 })
 
 -- ════════════════════════════════════════════════════════════════════════════
--- FINAL BOOT COMPLETIONS
--- ════════════════════════════════════════════════════════════════════════════
--- Execution control remains disabled in this UI-only preview.
-
--- Wire About nav
-AboutBtn.MouseButton1Click:Connect(function()
-    changePage("About")
-end)
-
--- Wire cmd palette from settings
-_G.LP10OpenCmd = openCmd
-
--- Completion toasts
-task.delay(7.0, function()
-    toast("Press F1", "Show keyboard shortcuts overlay at any time.", C.muted)
-end)
-task.delay(10.0, function()
-    toast("Press ; or Ctrl+K", "Open the command palette to find scripts instantly.", C.violet)
-end)
-
--- ════════════════════════════════════════════════════════════════════════════
--- UI-ONLY BUILD NOTES  —  LP10 HALLOWEEN UNIVERSAL
--- ════════════════════════════════════════════════════════════════════════════
---[[
-    LP10 Halloween Universal — UI-only catalogue preview.
-    This LocalScript keeps 42 catalogue labels and categories for display only.
-    No executable payloads, external script loading, clipboard API, executor API,
-    game remotes, or automated gameplay are included. Favorites and pins are
-    stored in memory only for the current session.
-
-    Features: search, categories, detail preview, favorites, pins, seasonal
-    colors, ember ambience, responsive layout, and UI settings.
-    Install as a LocalScript in an experience you own or are authorized to edit.
-]]
-
--- ════════════════════════════════════════════════════════════════════════════
--- EXTENDED DETAIL PANEL V2  (tags display, added version, tested label)
--- ════════════════════════════════════════════════════════════════════════════
--- Extend openDetail to also render tags from ScriptMeta
-local _openDetailBase = openDetail
-openDetail = function(data)
-    _openDetailBase(data)
-    -- Add meta info to existing desc label
-    local meta = ScriptMeta and ScriptMeta[data.N]
-    if meta then
-        local tagsStr = ""
-        if meta.tags then
-            local tagList = {}
-            for _, t in ipairs(meta.tags) do
-                table.insert(tagList, "#"..t)
-            end
-            tagsStr = table.concat(tagList, "  ")
-        end
-        local full = "Halloween catalog preview only; no source code is included."
-        if tagsStr ~= "" then
-            full = full .. "\n\nTags: " .. tagsStr
-        end
-        if meta.tested then
-            full = full .. "\nTested: " .. meta.tested
-        end
-        if meta.added then
-            full = full .. "\nAdded: " .. meta.added
-        end
-        if DetailDesc then
-            DetailDesc.Text = full
-        end
-    end
-end
-
--- ════════════════════════════════════════════════════════════════════════════
 -- SCRIPT SEARCH ENGINE  (advanced search: by tag, category, name)
 -- ════════════════════════════════════════════════════════════════════════════
-local function searchScripts(query)
+searchScripts = function(query)
     query = query:lower():gsub("^%s+",""):gsub("%s+$","")
     if query == "" then return Scripts end
     local results = {}
@@ -2629,57 +3276,19 @@ local function searchScripts(query)
     return results
 end
 
--- Override buildLibrary search to use advanced engine
-local _origBuildLibrary = buildLibrary
-buildLibrary = function(page)
-    local titles = {Scripts="Halloween Catalog",Favorites="Favorites",Pinned="Pinned Scripts",Recent="Recently Viewed"}
-    PageTitle.Text = titles[page] or "Script Library"
-    PageSub.Text   = page=="Scripts" and "Tap a script to inspect it before executing." or "Your curated LP10 collection."
-
-    local base  = listForPage(page)
-    local query = (SearchBox.Text or ""):lower():gsub("^%s+",""):gsub("%s+$","")
-    local list  = {}
-
-    if query ~= "" then
-        -- Use advanced search engine on base list
-        local advanced = searchScripts(query)
-        local baseSet  = {}
-        for _, d in ipairs(base) do baseSet[d.N] = true end
-        for _, d in ipairs(advanced) do
-            if baseSet[d.N] then table.insert(list, d) end
-        end
-    else
-        list = base
-    end
-
-    local visible = 0
-    for _, data in ipairs(list) do
-        local catMatch = ActiveCat == "All"
-            or (ActiveCat == "New" and data.New)
-            or (data.Cat == ActiveCat)
-        if catMatch then
-            visible = visible + 1
-            scriptCard(Body, data, visible)
-        end
-    end
-
-    if visible == 0 then
-        label(Body, {
-            Size=UDim2.new(1,0,0,110), LayoutOrder=1,
-            Text=query~="" and ('No matches for "'..SearchBox.Text..'"') or
-                 "Nothing here yet.\nPreview the catalog to fill this collection.",
-            TextColor3=C.muted, Font=Enum.Font.GothamSemibold, TextSize=13,
-            TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=16,
-        })
-    end
-end
-
 -- ════════════════════════════════════════════════════════════════════════════
 -- SCRIPT RATING SYSTEM  (tap to rate after execution)
 -- ════════════════════════════════════════════════════════════════════════════
 local Ratings = {}
+pcall(function()
+    local env = getgenv and getgenv()
+    if env then
+        env.LP10Ratings = env.LP10Ratings or {}
+        Ratings = env.LP10Ratings
+    end
+end)
 
-local function showRating(data)
+showRating = function(data)
     if not data then return end
     if Ratings[data.N] then return end  -- already rated
 
@@ -2690,7 +3299,7 @@ local function showRating(data)
     })
     round(panel, 16)
     outline(panel, C.line, 1)
-    fillGradient(panel, Color3.fromRGB(20,10,12), C.panel, 135)
+    fillGradient(panel, Color3.fromRGB(42,20,50), C.panel, 135)
 
     label(panel, {
         Size=UDim2.new(1,-28,0,22), Position=UDim2.fromOffset(14,10),
@@ -2709,13 +3318,13 @@ local function showRating(data)
     local function rateBtn(lbl, col, x, rating)
         local b = button(panel, {
             Size=UDim2.fromOffset(80,36), Position=UDim2.fromOffset(x,62),
-            BackgroundColor3=Color3.fromRGB(26,14,17),
+            BackgroundColor3=Color3.fromRGB(34,16,40),
             Text=lbl, TextColor3=col,
             Font=Enum.Font.GothamBold, TextSize=11, ZIndex=131,
         })
         round(b, 10)
         outline(b, col, 1)
-        wire(b, Color3.fromRGB(26,14,17), C.cardHot)
+        wire(b, Color3.fromRGB(34,16,40), C.cardHot)
         b.MouseButton1Click:Connect(function()
             play("tap")
             Ratings[data.N] = rating
@@ -2739,17 +3348,10 @@ local function showRating(data)
     spring(panel, 0.28, {Position=UDim2.new(0.5,-150,1,-148)})
 end
 
--- Hook rating prompt 2.5s after execution
-local _origExecForRating = execScript
-execScript = function(data)
-    _origExecForRating(data)
-    task.delay(2.5, function() showRating(data) end)
-end
-
 -- ════════════════════════════════════════════════════════════════════════════
 -- SCRIPT NOTES SYSTEM  (persistent per-script notes, stored in Persist)
 -- ════════════════════════════════════════════════════════════════════════════
-local function openNotes(data)
+openNotes = function(data)
     if not data then return end
 
     local notePanel = frame(GUI, {
@@ -2759,7 +3361,7 @@ local function openNotes(data)
     })
     round(notePanel, 18)
     outline(notePanel, C.line, 1.2)
-    fillGradient(notePanel, Color3.fromRGB(20,10,12), C.panel, 135)
+    fillGradient(notePanel, Color3.fromRGB(42,20,50), C.panel, 135)
 
     label(notePanel, {
         Size=UDim2.new(1,-32,0,24), Position=UDim2.fromOffset(16,14),
@@ -2821,25 +3423,11 @@ local function openNotes(data)
     spring(notePanel, 0.30, {Size=UDim2.fromOffset(364,264)})
 end
 
--- Add Notes button to detail panel
-local DetailNotesBtn = button(Detail, {
-    Size=UDim2.new(1,-32,0,36), Position=UDim2.fromOffset(16,390),
-    BackgroundColor3=C.card, Text="📝  NOTES",
-    TextColor3=C.violet, Font=Enum.Font.GothamSemibold, TextSize=10, ZIndex=61,
-})
-round(DetailNotesBtn, 11)
-outline(DetailNotesBtn, C.line, 1)
-wire(DetailNotesBtn, C.card, C.cardHot)
-DetailNotesBtn.MouseButton1Click:Connect(function()
-    play("tap")
-    if CurrentScript then openNotes(CurrentScript) end
-end)
-
 -- ════════════════════════════════════════════════════════════════════════════
 -- SCRIPTS STATISTICS PAGE  (detailed execution analytics)
 -- ════════════════════════════════════════════════════════════════════════════
-local function buildStats()
-    PageTitle.Text = "Preview Stats"
+buildStats = function()
+    PageTitle.Text = "Execution Stats"
     PageSub.Text   = "Your complete LP10 execution history."
 
     local total = Persist.execCount or 0
@@ -2852,11 +3440,11 @@ local function buildStats()
         Size=UDim2.new(1,0,0,76), BackgroundTransparency=1, LayoutOrder=1, ZIndex=16,
     })
     listLayout(topRow, Enum.FillDirection.Horizontal, 12)
-    statBox(topRow, "OFF", "EXECUTION DISABLED", C.muted, 1)
+    statBox(topRow, tostring(total), "TOTAL EXECUTIONS", C.electric, 1)
     statBox(topRow, tostring(favC),  "FAVORITES",        C.yellow,   2)
     statBox(topRow, tostring(recC),  "RECENT",           C.green,    3)
 
-    sectionTitle(Body, "CATALOG ENTRIES", 2)
+    sectionTitle(Body, "TOP EXECUTED SCRIPTS", 2)
 
     -- Sort by exec count
     local sorted = {}
@@ -2868,7 +3456,7 @@ local function buildStats()
     if #sorted == 0 then
         label(Body, {
             Size=UDim2.new(1,0,0,50), LayoutOrder=3,
-            Text="Execution history is not available in this UI-only preview.",
+            Text="Execute some scripts first.",
             TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
             TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
         })
@@ -2881,7 +3469,7 @@ local function buildStats()
             })
             round(row, 13)
             outline(row, C.line, 1)
-            fillGradient(row, Color3.fromRGB(20,10,12), C.card, 135)
+            fillGradient(row, Color3.fromRGB(42,20,50), C.card, 135)
             label(row, {
                 Size=UDim2.fromOffset(28,52), Position=UDim2.fromOffset(10,0),
                 Text=tostring(i)..".",
@@ -2896,7 +3484,7 @@ local function buildStats()
             })
             label(row, {
                 Size=UDim2.new(1,-110,0,16), Position=UDim2.fromOffset(38,30),
-                Text="Previewed "..s.count.." time"..(s.count>1 and "s" or ""),
+                Text="Executed "..s.count.." time"..(s.count>1 and "s" or ""),
                 TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=9,
                 TextXAlignment=Enum.TextXAlignment.Left, ZIndex=17,
             })
@@ -2925,54 +3513,20 @@ local function buildStats()
     if achCount == 0 then
         label(Body, {
             Size=UDim2.new(1,0,0,28), LayoutOrder=15,
-            Text="Achievements are disabled in this UI-only preview.",
+            Text="No achievements yet. Execute scripts to earn them.",
             TextColor3=C.muted, Font=Enum.Font.Gotham, TextSize=11,
             TextXAlignment=Enum.TextXAlignment.Left, ZIndex=16,
         })
     end
 end
 
--- Add Stats to navigation
-table.insert(Pages, {id="Stats", label="Stats", icon="📊"})
-local statsNavBtn = button(NavScroll, {
-    Size=UDim2.new(1,-12,0,34), BackgroundColor3=Color3.fromRGB(11,6,8),
-    Text="  📊  Stats", TextColor3=C.text,
-    Font=Enum.Font.GothamSemibold, TextSize=11,
-    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
-})
-round(statsNavBtn, 10)
-inset(statsNavBtn, 6,0,0,0)
-wire(statsNavBtn, Color3.fromRGB(11,6,8), C.cardHot)
-NavButtons["Stats"] = statsNavBtn
-statsNavBtn.MouseButton1Click:Connect(function() changePage("Stats") end)
-
--- Update refresh to handle Stats page
-local _origRefresh2 = refresh
-refresh = function()
-    if CurrentPage == "Stats" then
-        wipeBody()
-        buildStats()
-        for id, btn in pairs(NavButtons) do
-            local active = id == CurrentPage
-            btn.BackgroundColor3 = active and Color3.fromRGB(150,55,20) or Color3.fromRGB(11,6,8)
-            for _, ch in ipairs(btn:GetChildren()) do
-                if ch:IsA("TextLabel") then
-                    ch.TextColor3 = active and C.white or C.text
-                end
-            end
-        end
-    else
-        _origRefresh2()
-    end
-end
-
 -- ════════════════════════════════════════════════════════════════════════════
--- HAPTIC FEEDBACK HELPER
+-- HAPTIC FEEDBACK HELPER  (mobile rumble on execute)
 -- ════════════════════════════════════════════════════════════════════════════
 local HapticService = nil
 pcall(function() HapticService = game:GetService("HapticService") end)
 
-local function haptic(intensity)
+haptic = function(intensity)
     pcall(function()
         if HapticService and UIS.TouchEnabled then
             HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, intensity or 0.4)
@@ -2985,87 +3539,41 @@ local function haptic(intensity)
     end)
 end
 
--- Preview activity does not trigger game actions.
-local _origExecFinal = execScript
-execScript = function(data)
-    haptic(0.55)
-    _origExecFinal(data)
-end
+-- ════════════════════════════════════════════════════════════════════════════
+-- QUICK-EXEC SWIPE  (swipe right on a script card to execute immediately)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Stored per-card data for swipe detection
+local swipeData = {}
 
--- ════════════════════════════════════════════════════════════════════════════
--- ════════════════════════════════════════════════════════════════════════════
--- FOOTER: SESSION SUMMARY TOAST ON CLOSE
--- ════════════════════════════════════════════════════════════════════════════
-local sessionStart = os.time()
-
-local _origClose = CloseBtn.MouseButton1Click
-CloseBtn.MouseButton1Click:Connect(function()
-    local duration = os.time() - sessionStart
-    local mins     = math.floor(duration/60)
-    local secs     = duration % 60
-        -- Brief summary toast before close
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title    = "LP10 Session Over",
-        Text     = "Session: "..mins.."m "..secs.."s  /  UI-only preview  /  Thanks, "..LP.Name.."!",
-        Duration = 6,
-    })
-end)
-
--- ════════════════════════════════════════════════════════════════════════════
--- ANIMATED LOADING DOTS  (shown in Body area while page renders)
--- ════════════════════════════════════════════════════════════════════════════
-local function showLoading(parent)
-    local dots = label(parent, {
-        Size=UDim2.new(1,0,0,44), LayoutOrder=0,
-        Text="Preparing Halloween preview…",
-        TextColor3=C.electric, Font=Enum.Font.GothamBold, TextSize=14,
-        TextXAlignment=Enum.TextXAlignment.Center, ZIndex=17,
-    })
-    task.spawn(function()
-        local frames2 = {"Loading   ","Loading.  ","Loading.. ","Loading..."}
-        local fi = 1
-        while dots and dots.Parent do
-            dots.Text = frames2[fi]
-            fi = fi % #frames2 + 1
-            task.wait(0.28)
+enableSwipeExec = function(item, data)
+    local startX, startY, swiping = 0, 0, false
+    item.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.Touch then
+            startX, startY, swiping = inp.Position.X, inp.Position.Y, true
         end
     end)
-    return dots
-end
-
--- ════════════════════════════════════════════════════════════════════════════
--- GLOBAL EXECUTION GUARD  (prevents double-execution within 1s)
--- ════════════════════════════════════════════════════════════════════════════
-local lastExecTime = {}
-
-local _guardedExec = execScript
-execScript = function(data)
-    if not data then return end
-    local now = os.clock()
-    if lastExecTime[data.N] and (now - lastExecTime[data.N]) < 1.2 then
-        toast("Wait", "Please wait before executing this script again.", C.yellow)
-        return
-    end
-    lastExecTime[data.N] = now
-    _guardedExec(data)
+    item.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.Touch and swiping then
+            swiping = false
+            local dx = inp.Position.X - startX
+            local dy = math.abs(inp.Position.Y - startY)
+            if dx > 80 and dy < 40 then
+                -- Right swipe detected — quick execute
+                execScript(data)
+                toast("Swiped!", "Executing "..data.N.."…", C.electric)
+                spring(item, 0.18, {Position=UDim2.new(item.Position.X.Scale, 40, item.Position.Y.Scale, item.Position.Y.Offset)})
+                task.delay(0.2, function()
+                    tw(item, 0.14, {Position=UDim2.new(item.Position.X.Scale, 0, item.Position.Y.Scale, item.Position.Y.Offset)})
+                end)
+            end
+        end
+    end)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- NOTIFICATION CENTER  (history of last 10 toasts)
 -- ════════════════════════════════════════════════════════════════════════════
-local NotifHistory = {}
-local MAX_NOTIF_HISTORY = 10
-
-local _origToast = toast
-toast = function(title, msg, col)
-    table.insert(NotifHistory, 1, {title=title, msg=msg, col=col, time=os.date("%H:%M:%S")})
-    if #NotifHistory > MAX_NOTIF_HISTORY then
-        table.remove(NotifHistory, #NotifHistory)
-    end
-    _origToast(title, msg, col)
-end
-
-local function buildNotifCenter()
+buildNotifCenter = function()
     PageTitle.Text = "Notifications"
     PageSub.Text   = "Recent system messages and alerts."
     if #NotifHistory == 0 then
@@ -3103,44 +3611,41 @@ local function buildNotifCenter()
     end
 end
 
--- Add Notifications to nav
-local notifNavBtn = button(NavScroll, {
-    Size=UDim2.new(1,-12,0,34), BackgroundColor3=Color3.fromRGB(11,6,8),
-    Text="  🔔  Notifs", TextColor3=C.text,
-    Font=Enum.Font.GothamSemibold, TextSize=11,
-    TextXAlignment=Enum.TextXAlignment.Left, ZIndex=15,
-})
-round(notifNavBtn, 10)
-inset(notifNavBtn, 6,0,0,0)
-wire(notifNavBtn, Color3.fromRGB(11,6,8), C.cardHot)
-NavButtons["Notifs"] = notifNavBtn
-notifNavBtn.MouseButton1Click:Connect(function() changePage("Notifs") end)
+-- ════════════════════════════════════════════════════════════════════════════
+-- FINAL BOOT
+-- ════════════════════════════════════════════════════════════════════════════
+_G.LP10OpenCmd = openCmd
 
-local _origRefresh3 = refresh
-refresh = function()
-    if CurrentPage == "Notifs" then
-        wipeBody()
-        buildNotifCenter()
-        for id, btn in pairs(NavButtons) do
-            local active = id == CurrentPage
-            btn.BackgroundColor3 = active and Color3.fromRGB(150,55,20) or Color3.fromRGB(11,6,8)
-            for _, ch in ipairs(btn:GetChildren()) do
-                if ch:IsA("TextLabel") then ch.TextColor3 = active and C.white or C.text end
-            end
-        end
-    else
-        _origRefresh3()
-    end
+shutdownFn = function()
+    for _, c in ipairs(Conns) do pcall(function() c:Disconnect() end) end
+    Conns = {}
+    pcall(function() if ambientSound then ambientSound:Stop(); ambientSound:Destroy() end end)
+    for _, snd in pairs(Snd) do pcall(function() snd:Destroy() end) end
+    pcall(function() if Blur then Blur:Destroy() end end)
+    pcall(function() if GUI then GUI:Destroy() end end)
 end
+pcall(function()
+    local env = getgenv and getgenv()
+    if env then env.LP10UniversalCleanup = shutdownFn end
+end)
 
+CurrentPage = Persist.page or "Home"
+applyLayout()
+refresh()
+openMain()
 
-
-
-
--- FINAL SAFETY GUARD: every execution route remains preview-only.
-execScript = function(data)
-    if data then
-        toast("Preview only", "No executable payload is included in this Halloween UI build.", C.orange)
-    end
-    return false
-end
+task.delay(2.60, function()
+    toast("🎃 Happy Halloween", SCRIPT_COUNT.." scripts risen. The spirits are awake.", C.electric)
+end)
+task.delay(4.80, function()
+    toast("★ New Game Added", "+1 Assassin Leveling is now at the top of Scripts.", C.orange)
+end)
+task.delay(7.20, function()
+    toast("Tip", "Tap any script to inspect it, favorite it, or cast it.", C.violet)
+end)
+task.delay(10.0, function()
+    toast("Press F1", "Show keyboard shortcuts overlay at any time.", C.muted)
+end)
+task.delay(12.5, function()
+    toast("Press ; or Ctrl+K", "Open the command palette to find scripts instantly.", C.violet)
+end)
