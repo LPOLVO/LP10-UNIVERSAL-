@@ -43,18 +43,15 @@ local function cacheLink()
     return false, "Server Unreachable"
 end
 
--- Key is held here until the intro finishes, then released to Junkie
-local PendingKey = nil
-
 -- Verify the key
 local function redeemKey(key)
     local ok, result = pcall(Junkie.check_key, key)
     if ok and type(result) == "table" and result.valid then
         if result.message == "KEYLESS" then
-            PendingKey = "KEYLESS"
+            getgenv().SCRIPT_KEY = "KEYLESS"
             return true, "Keyless mode"
         elseif result.message == "KEY_VALID" then
-            PendingKey = key
+            getgenv().SCRIPT_KEY = key
             if writefile then pcall(writefile, Config.KeyFileName, key) end
             return true, "Success"
         end
@@ -62,218 +59,13 @@ local function redeemKey(key)
     return false, (ok and type(result) == "table" and result.message) or "Invalid Key"
 end
 
--- Halloween intro (plays after the key is accepted, before Junkie runs the script)
-local function PlayIntro()
-    local player = game:GetService("Players").LocalPlayer
-    local parent = game:GetService("CoreGui")
-    pcall(function() if gethui then parent = gethui() end end)
-    if not parent then parent = player:WaitForChild("PlayerGui") end
-    if parent:FindFirstChild("LP10_HalloweenIntro") then parent.LP10_HalloweenIntro:Destroy() end
-
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "LP10_HalloweenIntro"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 999
-    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    gui.Parent = parent
-
-    pcall(function()
-        local rng = Random.new()
-        local cam = workspace.CurrentCamera
-        local vp = cam and cam.ViewportSize or Vector2.new(800, 400)
-        local k = math.clamp(vp.Y / 420, 0.7, 1.2)
-        local function tw(obj, t, props, style, dir)
-            local tween = TweenService:Create(obj, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
-            tween:Play()
-            return tween
-        end
-        local function alive() return gui and gui.Parent ~= nil end
-
-        local root = Instance.new("CanvasGroup", gui)
-        root.Size = UDim2.fromScale(1, 1)
-        root.BackgroundColor3 = Color3.fromRGB(7, 3, 10)
-        root.BorderSizePixel = 0
-        root.GroupTransparency = 1
-        local rootGrad = Instance.new("UIGradient", root)
-        rootGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(7, 3, 10)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(34, 12, 24)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 3, 10)),
-        })
-        rootGrad.Rotation = 90
-        tw(root, 0.35, {GroupTransparency = 0})
-
-        -- glowing orb behind the title
-        local orb = Instance.new("ImageLabel", root)
-        orb.AnchorPoint = Vector2.new(0.5, 0.5)
-        orb.Size = UDim2.fromOffset(380 * k, 380 * k)
-        orb.Position = UDim2.fromScale(0.5, 0.45)
-        orb.BackgroundTransparency = 1
-        orb.Image = "rbxassetid://5028857084"
-        orb.ImageColor3 = Color3.fromRGB(255, 117, 24)
-        orb.ImageTransparency = 1
-        orb.ZIndex = 2
-
-        -- lightning flash
-        local flash = Instance.new("Frame", root)
-        flash.Size = UDim2.fromScale(1, 1)
-        flash.BackgroundColor3 = Color3.fromRGB(190, 120, 255)
-        flash.BackgroundTransparency = 1
-        flash.BorderSizePixel = 0
-        flash.ZIndex = 50
-        local function strike()
-            tw(flash, 0.05, {BackgroundTransparency = 0.55})
-            task.delay(0.09, function() tw(flash, 0.08, {BackgroundTransparency = 1}) end)
-            task.delay(0.22, function() tw(flash, 0.05, {BackgroundTransparency = 0.7}) end)
-            task.delay(0.29, function() tw(flash, 0.35, {BackgroundTransparency = 1}) end)
-        end
-
-        -- pumpkin
-        local pumpkin = Instance.new("TextLabel", root)
-        pumpkin.AnchorPoint = Vector2.new(0.5, 0.5)
-        pumpkin.Size = UDim2.fromOffset(100 * k, 100 * k)
-        pumpkin.Position = UDim2.fromScale(0.5, 0.27)
-        pumpkin.BackgroundTransparency = 1
-        pumpkin.Text = "🎃"
-        pumpkin.TextSize = math.floor(72 * k)
-        pumpkin.ZIndex = 10
-        local pumpkinScale = Instance.new("UIScale", pumpkin)
-        pumpkinScale.Scale = 0
-
-        -- title
-        local title = Instance.new("TextLabel", root)
-        title.AnchorPoint = Vector2.new(0.5, 0.5)
-        title.Size = UDim2.new(1, 0, 0, 60 * k)
-        title.Position = UDim2.new(0.5, 0, 0.5, 20)
-        title.BackgroundTransparency = 1
-        title.Text = "LP10 HUB"
-        title.Font = Enum.Font.Creepster
-        title.TextSize = math.floor(54 * k)
-        title.TextColor3 = Color3.fromRGB(255, 117, 24)
-        title.TextTransparency = 1
-        title.ZIndex = 10
-        local titleStroke = Instance.new("UIStroke", title)
-        titleStroke.Color = Color3.fromRGB(120, 40, 0)
-        titleStroke.Thickness = 2
-        titleStroke.Transparency = 1
-
-        -- subtitle (typewriter)
-        local sub = Instance.new("TextLabel", root)
-        sub.AnchorPoint = Vector2.new(0.5, 0.5)
-        sub.Size = UDim2.new(1, 0, 0, 24 * k)
-        sub.Position = UDim2.fromScale(0.5, 0.63)
-        sub.BackgroundTransparency = 1
-        sub.Text = ""
-        sub.Font = Enum.Font.GothamBold
-        sub.TextSize = math.floor(14 * k)
-        sub.TextColor3 = Color3.fromRGB(232, 190, 150)
-        sub.ZIndex = 10
-
-        -- loading bar
-        local bar = Instance.new("Frame", root)
-        bar.AnchorPoint = Vector2.new(0.5, 0.5)
-        bar.Size = UDim2.new(0.6, 0, 0, 6)
-        bar.Position = UDim2.fromScale(0.5, 0.74)
-        bar.BackgroundColor3 = Color3.fromRGB(40, 20, 34)
-        bar.BorderSizePixel = 0
-        bar.ZIndex = 10
-        Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-        local fill = Instance.new("Frame", bar)
-        fill.Size = UDim2.fromScale(0, 1)
-        fill.BackgroundColor3 = Color3.fromRGB(255, 160, 50)
-        fill.BorderSizePixel = 0
-        fill.ZIndex = 11
-        Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-        local fillGrad = Instance.new("UIGradient", fill)
-        fillGrad.Color = ColorSequence.new(Color3.fromRGB(170, 60, 5), Color3.fromRGB(255, 190, 110))
-
-        local status = Instance.new("TextLabel", root)
-        status.AnchorPoint = Vector2.new(0.5, 0.5)
-        status.Size = UDim2.new(1, 0, 0, 18)
-        status.Position = UDim2.fromScale(0.5, 0.81)
-        status.BackgroundTransparency = 1
-        status.Text = "ACCESS GRANTED  /  RAISING THE SPIRITS"
-        status.Font = Enum.Font.GothamSemibold
-        status.TextSize = math.floor(10 * k)
-        status.TextColor3 = Color3.fromRGB(120, 245, 70)
-        status.TextTransparency = 1
-        status.ZIndex = 10
-
-        -- bats flying across + rising spirits
-        local SPIRITS = {"🦇", "👻", "🎃", "🕸️", "💀", "🕷️"}
-        task.spawn(function()
-            while alive() do
-                task.wait(rng:NextNumber(0.25, 0.5))
-                if not alive() then break end
-                pcall(function()
-                    local y = rng:NextNumber(0.08, 0.92)
-                    local bat = Instance.new("TextLabel", root)
-                    bat.AnchorPoint = Vector2.new(0.5, 0.5)
-                    bat.Size = UDim2.fromOffset(32, 32)
-                    bat.Position = UDim2.new(-0.05, 0, y, 0)
-                    bat.BackgroundTransparency = 1
-                    bat.Text = SPIRITS[rng:NextInteger(1, #SPIRITS)]
-                    bat.TextSize = rng:NextInteger(18, 34)
-                    bat.ZIndex = 5
-                    local dur = rng:NextNumber(1.8, 3)
-                    tw(bat, dur, {
-                        Position = UDim2.new(1.05, 0, math.clamp(y + rng:NextNumber(-0.2, 0.2), 0.05, 0.95), 0),
-                        Rotation = rng:NextInteger(-30, 30),
-                    }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-                    task.delay(dur + 0.1, function() pcall(function() bat:Destroy() end) end)
-                end)
-            end
-        end)
-
-        -- orb pulse
-        task.spawn(function()
-            while alive() do
-                tw(orb, 0.9, {ImageTransparency = 0.45}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-                task.wait(0.9)
-                tw(orb, 0.9, {ImageTransparency = 0.7}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-                task.wait(0.9)
-            end
-        end)
-
-        -- timeline
-        task.wait(0.3)
-        strike()
-        tw(pumpkinScale, 0.6, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        task.wait(0.4)
-        tw(title, 0.6, {TextTransparency = 0, Position = UDim2.fromScale(0.5, 0.5)})
-        tw(titleStroke, 0.6, {Transparency = 0})
-        tw(fill, 2.4, {Size = UDim2.fromScale(1, 1)}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-        task.wait(0.5)
-        tw(status, 0.4, {TextTransparency = 0})
-        local text = "HALLOWEEN EDITION"
-        for i = 1, #text do
-            if not alive() then return end
-            sub.Text = string.sub(text, 1, i)
-            task.wait(0.05)
-        end
-        task.wait(0.6)
-        strike()
-        task.wait(1.0)
-
-        -- fade out
-        tw(root, 0.5, {GroupTransparency = 1})
-        task.wait(0.55)
-    end)
-
-    pcall(function() gui:Destroy() end)
-end
-
--- Called after a successful check: intro first, then the key is released and Junkie runs your script
+-- Called after a successful check: Junkie then runs your script
 local function StartMainScript()
     local pGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     if pGui:FindFirstChild(Config.OldGuiName) then
         pGui[Config.OldGuiName]:Destroy()
     end
     _G[Config.Secret] = true
-
-    pcall(PlayIntro)
-    getgenv().SCRIPT_KEY = PendingKey
 end
 
 local function CreateGUI()
