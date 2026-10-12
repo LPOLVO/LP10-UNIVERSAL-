@@ -1,2 +1,1 @@
-Don't look Im Shy !!
 loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/afb06600c26917e8cc2de420900c36ec6d5b13bcfdc865f549d1a7b54692abbf/download"))()
