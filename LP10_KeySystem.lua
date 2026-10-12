@@ -5,6 +5,9 @@ local Config = {
     -- Anti-Bypass variable (kept for your main script)
     Secret          = "2009",
 
+    -- Main script (has the intro) - loaded after the key is verified
+    MainScriptURL   = "https://raw.githubusercontent.com/LPOLVO/LP10-UNIVERSAL-/refs/heads/main/Universal",
+
     -- Social Media (true = show, false = hide)
     ShowDiscord     = true,
     DiscordURL      = "https://discord.gg/Uqrkdrpwxr",
@@ -66,6 +69,12 @@ local function StartMainScript()
         pGui[Config.OldGuiName]:Destroy()
     end
     _G[Config.Secret] = true
+
+    -- Run the main script (this is what shows the intro)
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(Config.MainScriptURL))()
+    end)
+    if not ok then warn("[LP10] Main script failed: " .. tostring(err)) end
 end
 
 local function CreateGUI()
